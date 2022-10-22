@@ -14,20 +14,11 @@ from mmedit.utils import get_root_logger
 @BACKBONES.register_module()
 class BasicVSRDehazeNet(nn.Module):
     """BasicVSRDehazeNet network structure for video dehazing.
-
-    Support either x4 upsampling or same size output.
-    Paper:
-        BasicVSR: The Search for Essential Components in Video Super-Resolution
-        and Beyond, CVPR, 2021
-
     Args:
         mid_channels (int): Channel number of the intermediate features.
             Default: 64.
         num_blocks (int): Number of residual blocks in each propagation branch.
             Default: 30.
-        is_low_res_input (bool, optional): Whether the input is low-resolution
-            or not. If False, the output resolution is equal to the input
-            resolution. Default: True.
         spynet_pretrained (str): Pre-trained model path of SPyNet.
             Default: None.
     """
@@ -35,13 +26,11 @@ class BasicVSRDehazeNet(nn.Module):
     def __init__(self, 
                  mid_channels=64, 
                  num_blocks=30, 
-                 is_low_res_input=False, 
                  spynet_pretrained=None):
 
         super().__init__()
 
         self.mid_channels = mid_channels
-        self.is_low_res_input = is_low_res_input
         # optical flow network for feature alignment
         self.spynet = SPyNet(pretrained=spynet_pretrained)
 
@@ -51,18 +40,16 @@ class BasicVSRDehazeNet(nn.Module):
         self.forward_resblocks = ResidualBlocksWithInputConv(
             mid_channels + 3, mid_channels, num_blocks)
 
-        # upsample
+        # restoration
         self.fusion = nn.Conv2d(
             mid_channels * 2, mid_channels, 1, 1, 0, bias=True)
-        self.upsample1 = PixelShufflePack(
-            mid_channels, mid_channels, 2, upsample_kernel=3)
-        self.upsample2 = PixelShufflePack(
-            mid_channels, 64, 2, upsample_kernel=3)
-        self.conv_hr = nn.Conv2d(64, 64, 3, 1, 1)
-        self.conv_last = nn.Conv2d(64, 3, 3, 1, 1)
-        self.img_upsample = nn.Upsample(
-            scale_factor=4, mode='bilinear', align_corners=False)
-
+        # 参考了FFANet
+        post_precess = [
+            nn.Conv2d(mid_channels, mid_channels, 3),
+            nn.Conv2d(mid_channels, 3, 3)]
+        self.post = nn.Sequential(*post_precess)
+        ##############
+        
         # activation function
         self.lrelu = nn.LeakyReLU(negative_slope=0.1, inplace=True)
 
@@ -113,42 +100,29 @@ class BasicVSRDehazeNet(nn.Module):
 
     def forward(self, lrs):
         """Forward function for BasicVSR.
-
         Args:
             lrs (Tensor): Input LR sequence with shape (n, t, c, h, w).
-
         Returns:
-            Tensor: Output HR sequence with shape (n, t, c, 4h, 4w).
+            Tensor: Output HR sequence with shape (n, t, c, h, w).
         """
         n, t, c, h, w = lrs.size()
-        
-        if self.is_low_res_input:
-            lrs_downsample = lrs.clone()
-        else:
-            lrs_downsample = F.interpolate(
-                lrs.view(-1, c, h, w), scale_factor=0.25,
-                mode='bicubic').view(n, t, c, h // 4, w // 4)
             
         # check whether the input is an extended sequence
         self.check_if_mirror_extended(lrs)
 
-        # compute optical flow using the low-res inputs
-        assert lrs_downsample.size(3) >= 64 and lrs_downsample.size(4) >= 64, (
-            'The height and width of low-res inputs must be at least 64, '
-            f'but got {h} and {w}.')
         # compute optical flow
-        flows_forward, flows_backward = self.compute_flow(lrs_downsample)
+        flows_forward, flows_backward = self.compute_flow(lrs)
 
         # backward-time propagation
         outputs = []
-        h_downsample, w_downsample = lrs_downsample.size()[-2:]
-        feat_prop = lrs_downsample.new_zeros(n, self.mid_channels, h_downsample, w_downsample)
+        h_downsample, w_downsample = lrs.size()[-2:]
+        feat_prop = lrs.new_zeros(n, self.mid_channels, h_downsample, w_downsample)
         for i in range(t - 1, -1, -1):
             if i < t - 1:  # no warping required for the last timestep
                 flow = flows_backward[:, i, :, :, :]
                 feat_prop = flow_warp(feat_prop, flow.permute(0, 2, 3, 1))
 
-            feat_prop = torch.cat([lrs_downsample[:, i, :, :, :], feat_prop], dim=1)
+            feat_prop = torch.cat([lrs[:, i, :, :, :], feat_prop], dim=1)
             feat_prop = self.backward_resblocks(feat_prop)
 
             outputs.append(feat_prop)
@@ -157,7 +131,7 @@ class BasicVSRDehazeNet(nn.Module):
         # forward-time propagation and upsampling
         feat_prop = torch.zeros_like(feat_prop)
         for i in range(0, t):
-            lr_curr = lrs_downsample[:, i, :, :, :]
+            lr_curr = lrs[:, i, :, :, :]
             if i > 0:  # no warping required for the first timestep
                 if flows_forward is not None:
                     flow = flows_forward[:, i - 1, :, :, :]
@@ -171,27 +145,17 @@ class BasicVSRDehazeNet(nn.Module):
             # upsampling given the backward and forward features
             out = torch.cat([outputs[i], feat_prop], dim=1)
             out = self.lrelu(self.fusion(out))
-            out = self.lrelu(self.upsample1(out))
-            out = self.lrelu(self.upsample2(out))
-            out = self.lrelu(self.conv_hr(out))
-            out = self.conv_last(out)
-            if self.is_low_res_input:
-                out += self.img_upsample(lrs[:, i, :, :, :])
-            else:
-                out += lrs[:, i, :, :, :]
+            
+            # 参考FFANet
+            out = self.post(out)
+            ############
+            
+            out += lrs[:, i, :, :, :]
             outputs[i] = out
 
         return torch.stack(outputs, dim=1)
 
     def init_weights(self, pretrained=None, strict=True):
-        """Init weights for models.
-
-        Args:
-            pretrained (str, optional): Path for pretrained weights. If given
-                None, pretrained weights will not be loaded. Defaults: None.
-            strict (boo, optional): Whether strictly load the pretrained model.
-                Defaults to True.
-        """
         if isinstance(pretrained, str):
             logger = get_root_logger()
             load_checkpoint(self, pretrained, strict=strict, logger=logger)
@@ -209,7 +173,6 @@ class ResidualBlocksWithInputConv(nn.Module):
             Default: 64.
         num_blocks (int): Number of residual blocks. Default: 30.
     """
-
     def __init__(self, in_channels, out_channels=64, num_blocks=30):
         super().__init__()
 
@@ -227,14 +190,6 @@ class ResidualBlocksWithInputConv(nn.Module):
         self.main = nn.Sequential(*main)
 
     def forward(self, feat):
-        """Forward function for ResidualBlocksWithInputConv.
-
-        Args:
-            feat (Tensor): Input feature with shape (n, in_channels, h, w)
-
-        Returns:
-            Tensor: Output feature with shape (n, out_channels, h, w)
-        """
         return self.main(feat)
 
 
