@@ -1,17 +1,15 @@
-exp_name = 'basicvsr_dehaze_c64n30_600k_revide'
+exp_name = 'basicvsr_dehazenet_c64n10_300k_revide'
 
 # model settings
 model = dict(
     type='BasicVSR',
     generator=dict(
-        type='BasicVSRDehaze',
+        type='BasicVSRDehazeNet',
         mid_channels=64,
-        num_blocks=30,
-        is_low_res_input=False,
+        num_blocks=10,
         spynet_pretrained='https://download.openmmlab.com/mmediting/restorers/'
         'basicvsr/spynet_20210409-c6c1bd09.pth'),
     pixel_loss=dict(type='CharbonnierLoss', loss_weight=1.0, reduction='mean'))
-
 # model training and testing settings
 train_cfg = dict(fix_iter=5000)
 test_cfg = dict(metrics=['PSNR', 'SSIM'], crop_border=0)
@@ -19,14 +17,9 @@ test_cfg = dict(metrics=['PSNR', 'SSIM'], crop_border=0)
 # dataset settings
 train_dataset_type = 'SRFolderMultipleGTDataset'
 val_dataset_type = 'SRFolderMultipleGTDataset'
-test_dataset_type = 'SRFolderMultipleGTDataset'
 
 train_pipeline = [
-    dict(
-        type='GenerateSegmentIndices',
-        interval_list=[1],
-        start_idx=0,
-        filename_tmpl='{:05d}.png'),
+    dict(type='GenerateSegmentIndices', interval_list=[1]),
     dict(type='TemporalReverse', keys='lq_path', reverse_ratio=0),
     dict(
         type='LoadImageFromFileList',
@@ -39,7 +32,7 @@ train_pipeline = [
         key='gt',
         channel_order='rgb'),
     dict(type='RescaleToZeroOne', keys=['lq', 'gt']),
-    dict(type='PairedRandomCrop', gt_patch_size=256),
+    dict(type='PairedRandomCropWithoutScale', gt_patch_size=256),
     dict(
         type='Flip', keys=['lq', 'gt'], flip_ratio=0.5,
         direction='horizontal'),
@@ -49,12 +42,8 @@ train_pipeline = [
     dict(type='Collect', keys=['lq', 'gt'], meta_keys=['lq_path', 'gt_path'])
 ]
 
-val_pipeline = [
-    dict(
-        type='GenerateSegmentIndices',
-        interval_list=[1],
-        start_idx=0,
-        filename_tmpl='{:05d}.png'),
+test_pipeline = [
+    dict(type='GenerateSegmentIndices', interval_list=[1]),
     dict(
         type='LoadImageFromFileList',
         io_backend='disk',
@@ -73,8 +62,6 @@ val_pipeline = [
         meta_keys=['lq_path', 'gt_path', 'key'])
 ]
 
-test_pipeline = val_pipeline
-
 demo_pipeline = [
     dict(type='GenerateSegmentIndices', interval_list=[1]),
     dict(
@@ -88,42 +75,41 @@ demo_pipeline = [
 ]
 
 data = dict(
-    workers_per_gpu=2,
+    workers_per_gpu=4,
     train_dataloader=dict(samples_per_gpu=2, drop_last=True),  # 1 gpus
     val_dataloader=dict(samples_per_gpu=1),
     test_dataloader=dict(samples_per_gpu=1, workers_per_gpu=1),
-    
+
     # train
-    # train_dataloader=dict(samples_per_gpu=2, workers_per_gpu=2),
+    # num_input_frames暂时调成15帧，并设置RepeatDataset
     train=dict(
-        type=train_dataset_type,
-        lq_folder='./data/REVIDE_indoor/Test/hazy',
-        gt_folder='./data/REVIDE_indoor/Test/gt',
-        pipeline=train_pipeline,
-        scale=4,
-        test_mode=False), 
-    
+        type='RepeatDataset',
+        times=1000,
+        dataset=dict(
+            type=train_dataset_type,
+            lq_folder='./data/REVIDE_indoor/Train/hazy',
+            gt_folder='./data/REVIDE_indoor/Train/gt',
+            num_input_frames=15,
+            pipeline=train_pipeline,
+            test_mode=False)),
     # val
+    # val和test的batch均为1
     val=dict(
         type=val_dataset_type,
         lq_folder='./data/REVIDE_indoor/Test/hazy',
         gt_folder='./data/REVIDE_indoor/Test/gt',
-        pipeline=val_pipeline,
-        scale=4,
-        test_mode=True),    
-    
+        pipeline=test_pipeline,
+        test_mode=True),
     # test
     test=dict(
-        type=test_dataset_type,
+        type=val_dataset_type,
         lq_folder='./data/REVIDE_indoor/Test/hazy',
         gt_folder='./data/REVIDE_indoor/Test/gt',
         pipeline=test_pipeline,
-        scale=4,
         test_mode=True),
 )
 
 # optimizer
-# 学习率没有根据bs调整暂时
 optimizers = dict(
     generator=dict(
         type='Adam',
@@ -140,9 +126,11 @@ lr_config = dict(
     restart_weights=[1],
     min_lr=1e-7)
 
-checkpoint_config = dict(interval=5000, save_optimizer=True, by_epoch=False)
+# 先填为500，后面再调整回5000
+checkpoint_config = dict(interval=500, save_optimizer=True, by_epoch=False)
 # remove gpu_collect=True in non distributed training
-evaluation = dict(interval=5000, save_image=False, gpu_collect=True)
+# save_image先变为True，后面再改回False
+evaluation = dict(interval=500, save_image=True)
 log_config = dict(
     interval=100,
     hooks=[
@@ -154,8 +142,9 @@ visual_config = None
 # runtime settings
 dist_params = dict(backend='nccl')
 log_level = 'INFO'
-work_dir = f'./work_dirs/{exp_name}'
 load_from = None
 resume_from = None
 workflow = [('train', 1)]
+work_dir = f'./work_dirs/{exp_name}'
 find_unused_parameters = True
+

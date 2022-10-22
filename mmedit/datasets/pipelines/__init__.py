@@ -8,7 +8,7 @@ from .augmentation import (BinarizeImage, ColorJitter, CopyValues, Flip,
                            TemporalReverse, UnsharpMasking)
 from .compose import Compose
 from .crop import (Crop, CropAroundCenter, CropAroundFg, CropAroundUnknown,
-                   CropLike, FixedCrop, ModCrop, PairedRandomCrop,
+                   CropLike, FixedCrop, ModCrop, PairedRandomCrop, PairedRandomCropWithoutScale, 
                    RandomResizedCrop)
 from .formating import (Collect, FormatTrimap, GetMaskedImage, ImageToTensor,
                         ToTensor)
@@ -32,7 +32,7 @@ __all__ = [
     'GetMaskedImage', 'BinarizeImage', 'Flip', 'Pad', 'RandomAffine',
     'RandomJitter', 'ColorJitter', 'RandomMaskDilation', 'RandomTransposeHW',
     'Resize', 'RandomResizedCrop', 'Crop', 'CropAroundCenter',
-    'CropAroundUnknown', 'ModCrop', 'PairedRandomCrop', 'Normalize',
+    'CropAroundUnknown', 'ModCrop', 'PairedRandomCrop', 'PairedRandomCropWithoutScale', 'Normalize',
     'RescaleToZeroOne', 'GenerateTrimap', 'MergeFgAndBg', 'CompositeFg',
     'TemporalReverse', 'LoadImageFromFileList', 'GenerateFrameIndices',
     'GenerateFrameIndiceswithPadding', 'FixedCrop', 'LoadPairedImageFromFile',
