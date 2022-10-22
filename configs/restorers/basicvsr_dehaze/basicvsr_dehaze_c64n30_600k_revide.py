@@ -15,8 +15,8 @@ train_cfg = dict(fix_iter=5000)
 test_cfg = dict(metrics=['PSNR', 'SSIM'], crop_border=0)
 
 # dataset settings
-train_dataset_type = 'SRFolderMultipleGTDataset'
-val_dataset_type = 'SRFolderMultipleGTDataset'
+train_dataset_type = 'DehazeFolderMultipleGTDataset'
+val_dataset_type = 'DehazeFolderMultipleGTDataset'
 
 train_pipeline = [
     dict(type='GenerateSegmentIndices', interval_list=[1]),
@@ -75,8 +75,8 @@ demo_pipeline = [
 ]
 
 data = dict(
-    workers_per_gpu=4,
-    train_dataloader=dict(samples_per_gpu=2, drop_last=True),  # 1 gpus
+    workers_per_gpu=8,
+    train_dataloader=dict(samples_per_gpu=4, drop_last=True),  # 1 gpus
     val_dataloader=dict(samples_per_gpu=1),
     test_dataloader=dict(samples_per_gpu=1, workers_per_gpu=1),
 

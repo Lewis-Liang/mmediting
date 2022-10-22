@@ -3,6 +3,7 @@ from .base_dataset import BaseDataset
 from .base_generation_dataset import BaseGenerationDataset
 from .base_matting_dataset import BaseMattingDataset
 from .base_sr_dataset import BaseSRDataset
+from .base_dehaze_dataset import BaseDehazeDataset
 from .base_vfi_dataset import BaseVFIDataset
 from .builder import build_dataloader, build_dataset
 from .comp1k_dataset import AdobeComp1kDataset
@@ -16,6 +17,7 @@ from .sr_facial_landmark_dataset import SRFacialLandmarkDataset
 from .sr_folder_dataset import SRFolderDataset
 from .sr_folder_gt_dataset import SRFolderGTDataset
 from .sr_folder_multiple_gt_dataset import SRFolderMultipleGTDataset
+from .dehaze_folder_multiple_gt_dataset import DehazeFolderMultipleGTDataset
 from .sr_folder_ref_dataset import SRFolderRefDataset
 from .sr_folder_video_dataset import SRFolderVideoDataset
 from .sr_lmdb_dataset import SRLmdbDataset
@@ -32,11 +34,11 @@ __all__ = [
     'DATASETS', 'PIPELINES', 'build_dataset', 'build_dataloader',
     'BaseDataset', 'BaseMattingDataset', 'ImgInpaintingDataset',
     'AdobeComp1kDataset', 'SRLmdbDataset', 'SRFolderDataset',
-    'SRAnnotationDataset', 'BaseSRDataset', 'RepeatDataset', 'SRREDSDataset',
+    'SRAnnotationDataset', 'BaseSRDataset', 'BaseDehazeDataset', 'RepeatDataset', 'SRREDSDataset',
     'SRVimeo90KDataset', 'BaseGenerationDataset', 'GenerationPairedDataset',
     'GenerationUnpairedDataset', 'SRVid4Dataset', 'SRFolderGTDataset',
     'SRREDSMultipleGTDataset', 'SRVimeo90KMultipleGTDataset',
     'SRTestMultipleGTDataset', 'SRFolderRefDataset', 'SRFacialLandmarkDataset',
-    'SRFolderMultipleGTDataset', 'SRFolderVideoDataset', 'BaseVFIDataset',
+    'SRFolderMultipleGTDataset', 'DehazeFolderMultipleGTDataset', 'SRFolderVideoDataset', 'BaseVFIDataset',
     'VFIVimeo90KDataset', 'VFIVimeo90K7FramesDataset'
 ]

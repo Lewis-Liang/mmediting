@@ -45,8 +45,8 @@ class BasicVSRDehazeNet(nn.Module):
             mid_channels * 2, mid_channels, 1, 1, 0, bias=True)
         # 参考了FFANet
         post_precess = [
-            nn.Conv2d(mid_channels, mid_channels, 3),
-            nn.Conv2d(mid_channels, 3, 3)]
+            nn.Conv2d(mid_channels, mid_channels, 3, 1, 1),
+            nn.Conv2d(mid_channels, 3, 3, 1, 1)]
         self.post = nn.Sequential(*post_precess)
         ##############
         
@@ -145,12 +145,11 @@ class BasicVSRDehazeNet(nn.Module):
             # upsampling given the backward and forward features
             out = torch.cat([outputs[i], feat_prop], dim=1)
             out = self.lrelu(self.fusion(out))
-            
+                
             # 参考FFANet
             out = self.post(out)
             ############
-            
-            out += lrs[:, i, :, :, :]
+            out += lr_curr
             outputs[i] = out
 
         return torch.stack(outputs, dim=1)
