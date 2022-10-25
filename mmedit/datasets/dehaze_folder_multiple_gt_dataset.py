@@ -5,7 +5,7 @@ import os.path as osp
 
 import mmcv
 
-from .base_sr_dataset import BaseSRDataset
+from .base_dehaze_dataset import BaseDehazeDataset
 from .registry import DATASETS
 
 
@@ -102,7 +102,7 @@ class DehazeFolderMultipleGTDataset(BaseDehazeDataset):
         sequences = sorted(glob.glob(osp.join(self.lq_folder, '*')))
         data_infos = []
         for sequence in sequences:
-            sequence_length = len(glob.glob(osp.join(sequence, '*.png')))
+            sequence_length = len(glob.glob(osp.join(sequence, '*.JPG')))
             if self.num_input_frames is None:
                 num_input_frames = sequence_length
             else:

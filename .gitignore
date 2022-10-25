@@ -133,3 +133,10 @@ mmedit/.mim
 
 # MacOS
 .DS_Store
+
+# work_dirs & outputs
+work_dirs/**
+outputs/**
+
+# nohup.out
+**/nohup.out

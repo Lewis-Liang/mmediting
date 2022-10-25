@@ -149,9 +149,19 @@ class Resize:
                             new_w)
             self.scale = (new_w, new_h)
         for key, out_key in zip(self.keys, self.output_keys):
-            results[out_key] = self._resize(results[key])
-            if len(results[out_key].shape) == 2:
-                results[out_key] = np.expand_dims(results[out_key], axis=2)
+            if isinstance(results[key], list):
+                results[out_key] = [
+                    np.expand_dims(self._resize(v), axis=2) if len(v.shape) == 2
+                    else self._resize(v) for v in results[key]
+                ]
+            else:
+                results[out_key] = self._resize(results[key])
+                if len(results[out_key].shape) == 2:
+                    results[out_key] = np.expand_dims(results[out_key], axis=2)
+                
+            # results[out_key] = self._resize(results[key])
+            # if len(results[out_key].shape) == 2:
+            #     results[out_key] = np.expand_dims(results[out_key], axis=2)
 
         results['scale_factor'] = self.scale_factor
         results['keep_ratio'] = self.keep_ratio
@@ -1096,9 +1106,9 @@ class GenerateSegmentIndices:
 
         # randomly select a frame as start
         if self.sequence_length - num_input_frames * interval < 0:
-            raise ValueError('The input sequence is not long enough to '
-                             'support the current choice of [interval] or '
-                             '[num_input_frames].')
+            raise ValueError(f'The input sequence is not long enough {self.sequence_length} to '
+                             f'support the current choice of {interval} or '
+                             f'{num_input_frames}.')
         start_frame_idx = np.random.randint(
             0, self.sequence_length - num_input_frames * interval + 1)
         end_frame_idx = start_frame_idx + num_input_frames * interval
