@@ -65,3 +65,7 @@ def test_restoration_video_inference():
         output = restoration_video_inference(model, img_dir, window_size,
                                              start_idx, filename_tmpl)
         assert output.shape == (1, 5, 3, 256, 256)
+
+
+if __name__ == "__main__":
+    test_restoration_video_inference()

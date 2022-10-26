@@ -139,7 +139,10 @@ class Resize:
             dict: A dict containing the processed data and information.
         """
         if self.size_factor:
-            h, w = results[self.keys[0]].shape[:2]
+            if isinstance(results[self.keys[0]], list):
+                h, w = results[self.keys[0]][0].shape[:2]
+            else:
+                h, w = results[self.keys[0]].shape[:2]
             new_h = h - (h % self.size_factor)
             new_w = w - (w % self.size_factor)
             if self.max_size:
@@ -148,6 +151,7 @@ class Resize:
                 new_w = min(self.max_size - (self.max_size % self.size_factor),
                             new_w)
             self.scale = (new_w, new_h)
+                
         for key, out_key in zip(self.keys, self.output_keys):
             if isinstance(results[key], list):
                 results[out_key] = [
@@ -159,6 +163,17 @@ class Resize:
                 if len(results[out_key].shape) == 2:
                     results[out_key] = np.expand_dims(results[out_key], axis=2)
                 
+        # if self.size_factor:
+        #     h, w = results[self.keys[0]].shape[:2]
+        #     new_h = h - (h % self.size_factor)
+        #     new_w = w - (w % self.size_factor)
+        #     if self.max_size:
+        #         new_h = min(self.max_size - (self.max_size % self.size_factor),
+        #                     new_h)
+        #         new_w = min(self.max_size - (self.max_size % self.size_factor),
+        #                     new_w)
+        #     self.scale = (new_w, new_h)
+        # for key, out_key in zip(self.keys, self.output_keys):
             # results[out_key] = self._resize(results[key])
             # if len(results[out_key].shape) == 2:
             #     results[out_key] = np.expand_dims(results[out_key], axis=2)

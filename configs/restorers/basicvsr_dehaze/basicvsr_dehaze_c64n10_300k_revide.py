@@ -15,7 +15,7 @@ model = dict(
     # 自定义损失：
     # TEST1：L1Loss + percp
     # TEST2：L1Loss
-    pixel_loss=dict(type='L1Loss', loss_weight=1.0, reduction='mean')
+    pixel_loss=dict(type='L1Loss', loss_weight=1.0, reduction='mean'))
 # model training and testing settings
 # train_cfg参考了CVPR 2022论文参数设置
 train_cfg = dict(fix_iter=2500)
@@ -101,7 +101,12 @@ test_pipeline = [
         channel_order='rgb'),
     dict(type='RescaleToZeroOne', keys=['lq', 'gt']),
     dict(type='Normalize', keys=['lq', 'gt'], **img_norm_cfg),
-    dict(type='PairedRandomCropWithoutScale', gt_patch_size=384),
+    dict(
+        type='Resize',
+        keys=['lq','gt'],
+        keep_ratio=True,
+        scale=(1024, 2048),
+        interpolation='bicubic'),
     dict(type='FramesToTensor', keys=['lq', 'gt']),
     dict(
         type='Collect',
@@ -123,22 +128,23 @@ demo_pipeline = [
     dict(
         type='Resize',
         keys=['lq'],
-        scale=None,
-        size_factor=32,
-        max_size=1024,
+        keep_ratio=True,
+        scale=(1024, 2048),
         interpolation='bicubic'),
     dict(type='FramesToTensor', keys=['lq']),
     dict(type='Collect', keys=['lq'], meta_keys=['lq_path', 'key'])
 ]
 
 data = dict(
-    workers_per_gpu=2,
-    train_dataloader=dict(samples_per_gpu=2, drop_last=True),  # 1 gpus
+    # 1 gpus
+    # workers_per_gpu从2变成4之后，GPU-Util利用率瞬间就上去了
+    workers_per_gpu=4, 
+    train_dataloader=dict(samples_per_gpu=2, drop_last=True),
     val_dataloader=dict(samples_per_gpu=1, workers_per_gpu=1),
     test_dataloader=dict(samples_per_gpu=1, workers_per_gpu=1),
 
     # train
-    # num_input_frames暂时调成10帧，并设置RepeatDataset
+    # num_input_frames暂时调成5帧，并设置RepeatDataset
     train=dict(
         type='RepeatDataset',
         times=1000,
@@ -146,7 +152,7 @@ data = dict(
             type=train_dataset_type,
             lq_folder='./data/REVIDE_indoor/Train/hazy',
             gt_folder='./data/REVIDE_indoor/Train/gt',
-            num_input_frames=10,
+            num_input_frames=5,
             pipeline=train_pipeline,
             test_mode=False)),
     # val
@@ -155,7 +161,7 @@ data = dict(
         type=val_dataset_type,
         lq_folder='./data/REVIDE_indoor/Test/hazy',
         gt_folder='./data/REVIDE_indoor/Test/gt',
-        # num_input_frames=10,
+        num_input_frames=5,
         pipeline=val_pipeline,
         test_mode=True),
     # test
@@ -163,7 +169,7 @@ data = dict(
         type=test_dataset_type,
         lq_folder='./data/REVIDE_indoor/Test/hazy',
         gt_folder='./data/REVIDE_indoor/Test/gt',
-        # num_input_frames=10,
+        num_input_frames=5,
         pipeline=test_pipeline,
         test_mode=True),
 )
@@ -204,7 +210,11 @@ visual_config = None
 dist_params = dict(backend='nccl')
 log_level = 'INFO'
 load_from = None
-resume_from = 'work_dirs/basicvsr_dehazenet_c64n10_300k_revide/iter_23000.pth'
+# train
+# resume_from = None
+
+# test
+resume_from = 'work_dirs/basicvsr_dehazenet_c64n10_300k_revide/iter_50000.pth'
 workflow = [('train', 1)]
 work_dir = f'./work_dirs/{exp_name}'
 find_unused_parameters = True
