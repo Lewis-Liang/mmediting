@@ -7,6 +7,7 @@ from .gradient_loss import GradientLoss
 from .perceptual_loss import (PerceptualLoss, PerceptualVGG,
                               TransferalPerceptualLoss)
 from .pixelwise_loss import CharbonnierLoss, L1Loss, MaskedTVLoss, MSELoss
+from .customed_loss import CharbonnierLoss_RGBandHSV
 from .utils import mask_reduce_loss, reduce_loss
 
 __all__ = [
@@ -14,5 +15,6 @@ __all__ = [
     'MSECompositionLoss', 'CharbonnierCompLoss', 'GANLoss', 'GaussianBlur',
     'GradientPenaltyLoss', 'PerceptualLoss', 'PerceptualVGG', 'reduce_loss',
     'mask_reduce_loss', 'DiscShiftLoss', 'MaskedTVLoss', 'GradientLoss',
-    'TransferalPerceptualLoss', 'LightCNNFeatureLoss'
+    'TransferalPerceptualLoss', 'LightCNNFeatureLoss',
+    'CharbonnierLoss_RGBandHSV'
 ]

@@ -1,3 +1,4 @@
+import argparse
 import numbers
 import os
 import os.path as osp
@@ -53,25 +54,41 @@ def evaluate(output, gt, metrics=['PSNR', 'SSIM'], crop_border=0):
     return eval_result
 
 # recurrent framework (BasicVSR)
-def test_restoration_video_inference(model, img_dir, window_size=0, start_idx=0, filename_tmpl='{:05d}.JPG'):
+def test_restoration_video_inference(model, img_dir, window_size=0, start_idx=0, filename_tmpl='{:05d}.JPG', max_seq_len=5):
     if torch.cuda.is_available():
-        # max_seq_len表示一次最多输入和推理5帧
+        # max_seq_len表示一次最多输入和推理的帧数
         output = restoration_video_inference(model, img_dir, window_size,
-                                                          start_idx, filename_tmpl, max_seq_len=5)
+                                                          start_idx, filename_tmpl, max_seq_len)
         return output
+    
+    
+def get_config():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--config', type=str, required=True, help='config to test')
+    parser.add_argument('--checkpoint', type=str, required=True, help='checkpoint to test')
+    parser.add_argument('--seq', type=int, required=True, help='max sequence length')
+    parser.add_argument('--save-image', action='store_true', default=False, help='whether to save images')
+    return parser
 
 
+# TODO 写成一个argparse方便测试
 if __name__ == '__main__':
+    # REVIDE_indoor
     test_folder = './data/REVIDE_indoor/Test/hazy'
-    window_size=0
+    # filename开始帧的数值
     start_idx=0
     filename_tmpl='{:05d}.JPG'
+    
+    window_size=0
     evaluate_results = dict()
     
-    config = 'configs/restorers/basicvsr_dehaze/basicvsr_dehaze_c64n10_300k_revide.py'
-    checkpoint = 'work_dirs/basicvsr_dehazenet_c64n30_300k_revide/latest.pth'
-    model = init_model(config, checkpoint, device='cuda')
+    parser = get_config()
+    cfg = parser.parse_args()
+    model = init_model(cfg.config, cfg.checkpoint, device='cuda')
     
+    ############# 
+    # Test begins
+    #############
     test_folders = os.listdir(test_folder)
     prog_bar = mmcv.ProgressBar(len(test_folders))
     for folder_name in test_folders:
@@ -82,7 +99,7 @@ if __name__ == '__main__':
         sequence_length = len(glob.glob(osp.join(img_dir, '*')))
 
         # prepare Output data 
-        output = test_restoration_video_inference(model, img_dir)
+        output = test_restoration_video_inference(model, img_dir, max_seq_len=cfg.seq)
 
         # prepare Ground Truth data
         lq_folder = model.cfg.data.test['lq_folder']
@@ -104,21 +121,25 @@ if __name__ == '__main__':
         evaluate_results[img_dir] = evaluate(output, gt)
         
         # save output images
-        for i in range(0, output.size(1)):
-            if isinstance(iteration, numbers.Number):
-                save_path_i = osp.join(
-                    save_path, folder_name,
-                    f'{i:08d}-{iteration + 1:06d}.png')
-            elif iteration is None:
-                save_path_i = osp.join(save_path, folder_name,
-                                        f'{i:08d}.png')
-            else:
-                raise ValueError('iteration should be number or None, '
-                                    f'but got {type(iteration)}')
-            mmcv.imwrite(
-                tensor2img(output[:, i, :, :, :]), save_path_i)
-                
+        if cfg.save_image:
+            for i in range(0, output.size(1)):
+                if isinstance(iteration, numbers.Number):
+                    save_path_i = osp.join(
+                        save_path, folder_name,
+                        f'{i:08d}-{iteration + 1:06d}.png')
+                elif iteration is None:
+                    save_path_i = osp.join(save_path, folder_name,
+                                            f'{i:08d}.png')
+                else:
+                    raise ValueError('iteration should be number or None, '
+                                        f'but got {type(iteration)}')
+                mmcv.imwrite(
+                    tensor2img(output[:, i, :, :, :]), save_path_i)
+
         prog_bar.update()
+    ############# 
+    # Test ends
+    #############
 
     # 平均每个img_dir的metrics
     metrics=['PSNR', 'SSIM']

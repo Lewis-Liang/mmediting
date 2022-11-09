@@ -14,34 +14,8 @@ from mmedit.utils import get_root_logger
 
 
 @BACKBONES.register_module()
-class BasicVSRPlusPlus(nn.Module):
-    """BasicVSR++ network structure.
-
-    Support either x4 upsampling or same size output.
-
-    Paper:
-        BasicVSR++: Improving Video Super-Resolution with Enhanced Propagation
-        and Alignment
-
-    Args:
-        mid_channels (int, optional): Channel number of the intermediate
-            features. Default: 64.
-        num_blocks (int, optional): The number of residual blocks in each
-            propagation branch. Default: 7.
-        max_residue_magnitude (int): The maximum magnitude of the offset
-            residue (Eq. 6 in paper). Default: 10.
-        is_low_res_input (bool, optional): Whether the input is low-resolution
-            or not. If False, the output resolution is equal to the input
-            resolution. Default: True.
-        spynet_pretrained (str, optional): Pre-trained model path of SPyNet.
-            Default: None.
-        cpu_cache_length (int, optional): When the length of sequence is larger
-            than this value, the intermediate features are sent to CPU. This
-            saves GPU memory, but slows down the inference speed. You can
-            increase this number if you have a GPU with large memory.
-            Default: 100.
-    """
-
+class BasicVSRPlusPlusFixResolution(nn.Module):
+    
     def __init__(self,
                  mid_channels=64,
                  num_blocks=7,
@@ -59,15 +33,7 @@ class BasicVSRPlusPlus(nn.Module):
         self.spynet = SPyNet(pretrained=spynet_pretrained)
 
         # feature extraction module
-        if is_low_res_input:
-            self.feat_extract = ResidualBlocksWithInputConv(3, mid_channels, 5)
-        else:
-            self.feat_extract = nn.Sequential(
-                nn.Conv2d(3, mid_channels, 3, 2, 1),
-                nn.LeakyReLU(negative_slope=0.1, inplace=True),
-                nn.Conv2d(mid_channels, mid_channels, 3, 2, 1),
-                nn.LeakyReLU(negative_slope=0.1, inplace=True),
-                ResidualBlocksWithInputConv(mid_channels, mid_channels, 5))
+        self.feat_extract = ResidualBlocksWithInputConv(3, mid_channels, 5)
 
         # propagation branches
         self.deform_align = nn.ModuleDict()
@@ -87,14 +53,8 @@ class BasicVSRPlusPlus(nn.Module):
         # upsampling module
         self.reconstruction = ResidualBlocksWithInputConv(
             5 * mid_channels, mid_channels, 5)
-        self.upsample1 = PixelShufflePack(
-            mid_channels, mid_channels, 2, upsample_kernel=3)
-        self.upsample2 = PixelShufflePack(
-            mid_channels, 64, 2, upsample_kernel=3)
         self.conv_hr = nn.Conv2d(64, 64, 3, 1, 1)
         self.conv_last = nn.Conv2d(64, 3, 3, 1, 1)
-        self.img_upsample = nn.Upsample(
-            scale_factor=4, mode='bilinear', align_corners=False)
 
         # activation function
         self.lrelu = nn.LeakyReLU(negative_slope=0.1, inplace=True)
@@ -103,15 +63,6 @@ class BasicVSRPlusPlus(nn.Module):
         self.is_mirror_extended = False
 
     def check_if_mirror_extended(self, lqs):
-        """Check whether the input is a mirror-extended sequence.
-
-        If mirror-extended, the i-th (i=0, ..., t-1) frame is equal to the
-        (t-1-i)-th frame.
-
-        Args:
-            lqs (tensor): Input low quality (LQ) sequence with
-                shape (n, t, c, h, w).
-        """
 
         if lqs.size(1) % 2 == 0:
             lqs_1, lqs_2 = torch.chunk(lqs, 2, dim=1)
@@ -119,21 +70,6 @@ class BasicVSRPlusPlus(nn.Module):
                 self.is_mirror_extended = True
 
     def compute_flow(self, lqs):
-        """Compute optical flow using SPyNet for feature alignment.
-
-        Note that if the input is an mirror-extended sequence, 'flows_forward'
-        is not needed, since it is equal to 'flows_backward.flip(1)'.
-
-        Args:
-            lqs (tensor): Input low quality (LQ) sequence with
-                shape (n, t, c, h, w).
-
-        Return:
-            tuple(Tensor): Optical flow. 'flows_forward' corresponds to the
-                flows used for forward-time propagation (current to previous).
-                'flows_backward' corresponds to the flows used for
-                backward-time propagation (current to next).
-        """
 
         n, t, c, h, w = lqs.size()
         lqs_1 = lqs[:, :-1, :, :, :].reshape(-1, c, h, w)
@@ -153,20 +89,6 @@ class BasicVSRPlusPlus(nn.Module):
         return flows_forward, flows_backward
 
     def propagate(self, feats, flows, module_name):
-        """Propagate the latent features throughout the sequence.
-
-        Args:
-            feats dict(list[tensor]): Features from previous branches. Each
-                component is a list of tensors with shape (n, c, h, w).
-            flows (tensor): Optical flows with shape (n, t - 1, 2, h, w).
-            module_name (str): The name of the propagation branches. Can either
-                be 'backward_1', 'forward_1', 'backward_2', 'forward_2'.
-
-        Return:
-            dict(list[tensor]): A dictionary containing all the propagated
-                features. Each key in the dictionary corresponds to a
-                propagation branch, which is represented by a list of tensors.
-        """
 
         n, t, _, h, w = flows.size()
 
@@ -239,17 +161,6 @@ class BasicVSRPlusPlus(nn.Module):
         return feats
 
     def upsample(self, lqs, feats):
-        """Compute the output image given the features.
-
-        Args:
-            lqs (tensor): Input low quality (LQ) sequence with
-                shape (n, t, c, h, w).
-            feats (dict): The features from the propagation branches.
-
-        Returns:
-            Tensor: Output HR sequence with shape (n, t, c, 4h, 4w).
-        """
-
         outputs = []
         num_outputs = len(feats['spatial'])
 
@@ -264,14 +175,9 @@ class BasicVSRPlusPlus(nn.Module):
                 hr = hr.cuda()
 
             hr = self.reconstruction(hr)
-            hr = self.lrelu(self.upsample1(hr))
-            hr = self.lrelu(self.upsample2(hr))
             hr = self.lrelu(self.conv_hr(hr))
             hr = self.conv_last(hr)
-            if self.is_low_res_input:
-                hr += self.img_upsample(lqs[:, i, :, :, :])
-            else:
-                hr += lqs[:, i, :, :, :]
+            hr += lqs[:, i, :, :, :]
 
             if self.cpu_cache:
                 hr = hr.cpu()
@@ -282,15 +188,6 @@ class BasicVSRPlusPlus(nn.Module):
         return torch.stack(outputs, dim=1)
 
     def forward(self, lqs):
-        """Forward function for BasicVSR++.
-
-        Args:
-            lqs (tensor): Input low quality (LQ) sequence with
-                shape (n, t, c, h, w).
-
-        Returns:
-            Tensor: Output HR sequence with shape (n, t, c, 4h, 4w).
-        """
 
         n, t, c, h, w = lqs.size()
 
@@ -299,13 +196,6 @@ class BasicVSRPlusPlus(nn.Module):
             self.cpu_cache = True
         else:
             self.cpu_cache = False
-
-        if self.is_low_res_input:
-            lqs_downsample = lqs.clone()
-        else:
-            lqs_downsample = F.interpolate(
-                lqs.view(-1, c, h, w), scale_factor=0.25,
-                mode='bicubic').view(n, t, c, h // 4, w // 4)
 
         # check whether the input is an extended sequence
         self.check_if_mirror_extended(lqs)
@@ -325,10 +215,10 @@ class BasicVSRPlusPlus(nn.Module):
             feats['spatial'] = [feats_[:, i, :, :, :] for i in range(0, t)]
 
         # compute optical flow using the low-res inputs
-        assert lqs_downsample.size(3) >= 64 and lqs_downsample.size(4) >= 64, (
+        assert lqs.size(3) >= 64 and lqs.size(4) >= 64, (
             'The height and width of low-res inputs must be at least 64, '
             f'but got {h} and {w}.')
-        flows_forward, flows_backward = self.compute_flow(lqs_downsample)
+        flows_forward, flows_backward = self.compute_flow(lqs)
 
         # feature propagation
         for iter_ in [1, 2]:
@@ -352,14 +242,6 @@ class BasicVSRPlusPlus(nn.Module):
         return self.upsample(lqs, feats)
 
     def init_weights(self, pretrained=None, strict=True):
-        """Init weights for models.
-
-        Args:
-            pretrained (str, optional): Path for pretrained weights. If given
-                None, pretrained weights will not be loaded. Default: None.
-            strict (bool, optional): Whether strictly load the pretrained
-                model. Default: True.
-        """
         if isinstance(pretrained, str):
             logger = get_root_logger()
             load_checkpoint(self, pretrained, strict=strict, logger=logger)
@@ -369,23 +251,6 @@ class BasicVSRPlusPlus(nn.Module):
 
 
 class SecondOrderDeformableAlignment(ModulatedDeformConv2d):
-    """Second-order deformable alignment module.
-
-    Args:
-        in_channels (int): Same as nn.Conv2d.
-        out_channels (int): Same as nn.Conv2d.
-        kernel_size (int or tuple[int]): Same as nn.Conv2d.
-        stride (int or tuple[int]): Same as nn.Conv2d.
-        padding (int or tuple[int]): Same as nn.Conv2d.
-        dilation (int or tuple[int]): Same as nn.Conv2d.
-        groups (int): Same as nn.Conv2d.
-        bias (bool or str): If specified as `auto`, it will be decided by the
-            norm_cfg. Bias will be set as True if norm_cfg is None, otherwise
-            False.
-        max_residue_magnitude (int): The maximum magnitude of the offset
-            residue (Eq. 6 in paper). Default: 10.
-    """
-
     def __init__(self, *args, **kwargs):
         self.max_residue_magnitude = kwargs.pop('max_residue_magnitude', 10)
 
@@ -430,4 +295,3 @@ class SecondOrderDeformableAlignment(ModulatedDeformConv2d):
                                        self.stride, self.padding,
                                        self.dilation, self.groups,
                                        self.deform_groups)
-

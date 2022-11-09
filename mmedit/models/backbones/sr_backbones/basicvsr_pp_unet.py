@@ -13,38 +13,103 @@ from mmedit.models.registry import BACKBONES
 from mmedit.utils import get_root_logger
 
 
+def conv(in_channels, out_channels, kernel_size, bias=False, stride = 1):
+    return nn.Conv2d(
+        in_channels, out_channels, kernel_size,
+        padding=(kernel_size//2), bias=bias, stride = stride)
+
+class ConvAct(nn.Module):
+    def __init__(self, n_feat, kernel_size, bias, act):
+        super().__init__()
+        self.conv = conv(n_feat, n_feat, kernel_size, bias=bias)
+        self.act = act
+    
+    def forward(self, x):
+        return self.act( self.conv(x) )
+
+class DownSample(nn.Module):
+    def __init__(self, in_channels, s_factor):
+        super(DownSample, self).__init__()
+        self.down = nn.Sequential(nn.Upsample(scale_factor=0.5, mode='bilinear', align_corners=False),
+                                  nn.Conv2d(in_channels, in_channels + s_factor, 1, stride=1, padding=0, bias=False))
+
+    def forward(self, x):
+        x = self.down(x)
+        return x
+
+class UpSample(nn.Module):
+    def __init__(self, in_channels, s_factor):
+        super(UpSample, self).__init__()
+        self.up = nn.Sequential(nn.Upsample(scale_factor=2, mode='bilinear', align_corners=False),
+                                nn.Conv2d(in_channels + s_factor, in_channels, 1, stride=1, padding=0, bias=False))
+
+    def forward(self, x):
+        x = self.up(x)
+        return x
+
+class SkipUpSample(nn.Module):
+    def __init__(self, in_channels, s_factor):
+        super(SkipUpSample, self).__init__()
+        self.up = nn.Sequential(nn.Upsample(scale_factor=2, mode='bilinear', align_corners=False),
+                                nn.Conv2d(in_channels + s_factor, in_channels, 1, stride=1, padding=0, bias=False))
+
+    def forward(self, x, y):
+        x = self.up(x)
+        x = x + y
+        return x
+       
+class Unet(nn.Module):
+    def __init__(self, n_feat, out_feat, kernel_size=3, bias=False, scale_unetfeats=32):
+        super(Unet, self).__init__()
+        scale_unetfeats = int(n_feat/2)
+        act = nn.PReLU()
+        
+        # Encoder
+        self.encoder_level1 = [ConvAct(n_feat, kernel_size, bias, nn.PReLU()) for _ in range(2)]
+        self.encoder_level2 = [ConvAct(n_feat+scale_unetfeats, kernel_size, bias, nn.PReLU()) for _ in range(2)]
+        self.encoder_level3 = [ConvAct(n_feat+scale_unetfeats*2, kernel_size, bias, nn.PReLU()) for _ in range(2)]
+        self.encoder_level1 = nn.Sequential(*self.encoder_level1)
+        self.encoder_level2 = nn.Sequential(*self.encoder_level2)
+        self.encoder_level3 = nn.Sequential(*self.encoder_level3)
+        self.down12 = DownSample(n_feat, scale_unetfeats)
+        self.down23 = DownSample(n_feat + scale_unetfeats, scale_unetfeats)
+        
+        # Decoder
+        self.decoder_level1 = [ConvAct(n_feat, kernel_size, bias, nn.PReLU()) for _ in range(2)]
+        self.decoder_level2 = [ConvAct(n_feat+scale_unetfeats, kernel_size, bias, nn.PReLU()) for _ in range(2)]
+        self.decoder_level3 = [ConvAct(n_feat+scale_unetfeats*2, kernel_size, bias, nn.PReLU()) for _ in range(2)]
+        self.decoder_level1 = nn.Sequential(*self.decoder_level1)
+        self.decoder_level2 = nn.Sequential(*self.decoder_level2)
+        self.decoder_level3 = nn.Sequential(*self.decoder_level3)
+        self.up21 = SkipUpSample(n_feat, scale_unetfeats)
+        self.up32 = SkipUpSample(n_feat + scale_unetfeats, scale_unetfeats)
+        
+        # output
+        self.out_conv = conv(n_feat, out_feat, 3, False, 1)
+        self.out_act = nn.PReLU()
+        
+    def forward(self, x, encoder_outs=None, decoder_outs=None):
+        enc1 = self.encoder_level1(x)
+        x = self.down12(enc1)
+        enc2 = self.encoder_level2(x)
+        x = self.down23(enc2)
+        enc3 = self.encoder_level3(x)
+
+        dec3 = self.decoder_level3(enc3)
+        x = self.up32(dec3, enc2)
+        dec2 = self.decoder_level2(x)
+        x = self.up21(dec2, enc1)
+        dec1 = self.decoder_level1(x)
+
+        y = self.out_act( self.out_conv(dec1) )
+        
+        return y
+
 @BACKBONES.register_module()
-class BasicVSRPlusPlus(nn.Module):
-    """BasicVSR++ network structure.
-
-    Support either x4 upsampling or same size output.
-
-    Paper:
-        BasicVSR++: Improving Video Super-Resolution with Enhanced Propagation
-        and Alignment
-
-    Args:
-        mid_channels (int, optional): Channel number of the intermediate
-            features. Default: 64.
-        num_blocks (int, optional): The number of residual blocks in each
-            propagation branch. Default: 7.
-        max_residue_magnitude (int): The maximum magnitude of the offset
-            residue (Eq. 6 in paper). Default: 10.
-        is_low_res_input (bool, optional): Whether the input is low-resolution
-            or not. If False, the output resolution is equal to the input
-            resolution. Default: True.
-        spynet_pretrained (str, optional): Pre-trained model path of SPyNet.
-            Default: None.
-        cpu_cache_length (int, optional): When the length of sequence is larger
-            than this value, the intermediate features are sent to CPU. This
-            saves GPU memory, but slows down the inference speed. You can
-            increase this number if you have a GPU with large memory.
-            Default: 100.
-    """
+class BasicVSRPlusPlusUnet(nn.Module):
 
     def __init__(self,
                  mid_channels=64,
-                 num_blocks=7,
                  max_residue_magnitude=10,
                  is_low_res_input=True,
                  spynet_pretrained=None,
@@ -81,8 +146,10 @@ class BasicVSRPlusPlus(nn.Module):
                 padding=1,
                 deform_groups=16,
                 max_residue_magnitude=max_residue_magnitude)
-            self.backbone[module] = ResidualBlocksWithInputConv(
-                (2 + i) * mid_channels, mid_channels, num_blocks)
+            # 将ResidualBlocks换成Unet
+            # self.backbone[module] = ResidualBlocksWithInputConv(
+            #     (2 + i) * mid_channels, mid_channels, num_blocks)
+            self.backbone[module] = Unet((2+i)*mid_channels, mid_channels)
 
         # upsampling module
         self.reconstruction = ResidualBlocksWithInputConv(
@@ -431,3 +498,11 @@ class SecondOrderDeformableAlignment(ModulatedDeformConv2d):
                                        self.dilation, self.groups,
                                        self.deform_groups)
 
+
+if __name__ == "__main__":
+    unet = Unet(64,32,3,False,32)
+    x = torch.randn((1,64,64,64))
+    y = unet(x)
+    print(y.shape)
+    
+    

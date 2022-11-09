@@ -1,5 +1,5 @@
 # Copyright (c) OpenMMLab. All rights reserved.
-import pytest
+# import pytest
 import torch
 
 from mmedit.models.backbones.sr_backbones.basicvsr_pp import BasicVSRPlusPlus

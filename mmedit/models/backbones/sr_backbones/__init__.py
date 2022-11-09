@@ -1,7 +1,6 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 from .basicvsr_net import BasicVSRNet
 from .basicvsr_pp import BasicVSRPlusPlus
-from .basicvsr_dehaze_net import BasicVSRDehazeNet
 from .dic_net import DICNet
 from .edsr import EDSR
 from .edvr_net import EDVRNet
@@ -17,8 +16,14 @@ from .tdan_net import TDANNet
 from .tof import TOFlow
 from .ttsr_net import TTSRNet
 
+from .basicvsr_dehaze_net import BasicVSRDehazeNet
+from .basicvsr_pp_fix_resolution import BasicVSRPlusPlusFixResolution
+from .basicvsr_pp_unet import BasicVSRPlusPlusUnet
+
+
 __all__ = [
     'MSRResNet', 'RRDBNet', 'EDSR', 'EDVRNet', 'TOFlow', 'SRCNN', 'DICNet',
     'BasicVSRNet', 'IconVSR', 'RDN', 'TTSRNet', 'GLEANStyleGANv2', 'TDANNet',
-    'LIIFEDSR', 'LIIFRDN', 'BasicVSRPlusPlus', 'RealBasicVSRNet', 'BasicVSRDehazeNet'
+    'LIIFEDSR', 'LIIFRDN', 'BasicVSRPlusPlus', 'RealBasicVSRNet', 
+    'BasicVSRDehazeNet', 'BasicVSRPlusPlusFixResolution', 'BasicVSRPlusPlusUnet'
 ]
