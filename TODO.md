@@ -1,0 +1,11 @@
+- [x] customed hooks：在每次测试后，保存PSNR、SSIM最优的模型，并记录最优的iter值
+- [x] evaluation：每次验证的时候，使用所有的数据进行验证，而不是只使用输入的9帧
+- [x] test：测试时，保存每一张帧的PSNR和SSIM，最后再输出平均值
+- [x] 测试batch为1，accumulate gradient iter=8的情况
+- [x] 清理没有加vggloss版本的实验结果
+- [x] fix_iter设置为2500
+- [x] tools/test_multiple_times.sh
+- [x] hsvloss
+- [x] histogram loss
+- [x] ssim loss
+- [x] unet structure with vggloss and frame 7 or 9

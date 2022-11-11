@@ -78,6 +78,7 @@ if __name__ == '__main__':
     # filename开始帧的数值
     start_idx=0
     filename_tmpl='{:05d}.JPG'
+    filename_suffix=osp.splitext(filename_tmpl)[1]
     
     window_size=0
     evaluate_results = dict()
@@ -126,10 +127,10 @@ if __name__ == '__main__':
                 if isinstance(iteration, numbers.Number):
                     save_path_i = osp.join(
                         save_path, folder_name,
-                        f'{i:08d}-{iteration + 1:06d}.png')
+                        f'{i:08d}-{iteration + 1:06d}{filename_suffix}')
                 elif iteration is None:
                     save_path_i = osp.join(save_path, folder_name,
-                                            f'{i:08d}.png')
+                                            f'{i:08d}{filename_suffix}')
                 else:
                     raise ValueError('iteration should be number or None, '
                                         f'but got {type(iteration)}')
