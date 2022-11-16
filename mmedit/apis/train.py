@@ -177,6 +177,8 @@ def _dist_train(model,
     runner.timestamp = timestamp
 
     # register hooks
+    # runner.register_hook(cfg.ema_hook, priority='NORMAL')
+    
     runner.register_training_hooks(
         cfg.lr_config,
         checkpoint_config=cfg.checkpoint_config,
@@ -302,6 +304,9 @@ def _non_dist_train(model,
     runner.timestamp = timestamp
 
     # register hooks
+    if cfg.get('ema_config', None) is not None:
+        runner.register_hook(mmcv.build_from_cfg(cfg.ema_config, HOOKS), priority='NORMAL')
+    
     runner.register_training_hooks(
         cfg.lr_config,
         checkpoint_config=cfg.checkpoint_config,
