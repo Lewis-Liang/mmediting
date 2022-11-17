@@ -339,7 +339,7 @@ class EvalIterHookFull(Hook):
             runner.log_buffer.output['best_psnr'] = self.best_psnr
             runner.log_buffer.output['best_ssim'] = self.best_ssim
             # record best
-            with open(osp.join(runner.work_dir, "best.txt", "w")) as best_recorder:
+            with open(osp.join(runner.work_dir, "best.txt"), "w") as best_recorder:
                 best_recorder.write(f'best_iter:{self.best_iter}\
                                                             \nbest_psnr:{self.best_psnr}\
                                                             \nbest_ssim:{self.best_ssim}')
