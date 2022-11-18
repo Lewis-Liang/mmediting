@@ -2,8 +2,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-import cv2
-
 from ..registry import LOSSES
 from .utils import masked_loss
 from .pixelwise_loss import charbonnier_loss
