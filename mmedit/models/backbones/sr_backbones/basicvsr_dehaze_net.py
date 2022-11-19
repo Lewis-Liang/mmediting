@@ -14,7 +14,6 @@ from mmedit.utils import get_root_logger
 @BACKBONES.register_module()
 class BasicVSRDehazeNet(nn.Module):
     """BasicVSRDehazeNet network structure.
-    Support only x4 upsampling or same size output.
     Args:
         mid_channels (int): Channel number of the intermediate features.
             Default: 64.

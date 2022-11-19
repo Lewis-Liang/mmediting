@@ -87,10 +87,10 @@ class Unet(nn.Module):
         # output
         self.out_conv1 = conv(n_feat, out_feat, 3, False, 1)
         self.out_act1 = nn.PReLU()
-        self.out_conv2 = conv(n_feat, out_feat, 3, False, 1)
-        self.out_act2 = nn.PReLU()
-        self.out_conv3 = conv(n_feat, out_feat, 3, False, 1)
-        self.out_act3 = nn.PReLU()
+        # self.out_conv2 = conv(n_feat+scale_unetfeats, out_feat, 3, False, 1)
+        # self.out_act2 = nn.PReLU()
+        # self.out_conv3 = conv(n_feat+scale_unetfeats*2, out_feat, 3, False, 1)
+        # self.out_act3 = nn.PReLU()
         
     def forward(self, x, encoder_outs=None, decoder_outs=None):
         enc1 = self.encoder_level1(x)
@@ -105,9 +105,11 @@ class Unet(nn.Module):
         x = self.up21(dec2, enc1)
         dec1 = self.decoder_level1(x)
 
-        y = self.out_act( self.out_conv(dec1) )
+        y1= self.out_act1( self.out_conv1(dec1) )
+        # y2= self.out_act2( self.out_conv2(dec2) )
+        # y3= self.out_act3( self.out_conv3(dec3) )
         
-        return y
+        return y1
 
 @BACKBONES.register_module()
 class BasicVSRPlusPlusUnet(nn.Module):
@@ -162,9 +164,13 @@ class BasicVSRPlusPlusUnet(nn.Module):
             mid_channels, mid_channels, 2, upsample_kernel=3)
         self.upsample2 = PixelShufflePack(
             mid_channels, 64, 2, upsample_kernel=3)
-        self.conv_hr = nn.Conv2d(64, 64, 3, 1, 1)
-        self.conv_last = nn.Conv2d(64, 3, 3, 1, 1)
-        self.img_upsample = nn.Upsample(
+        self.conv_hr1 = nn.Conv2d(64, 64, 3, 1, 1)
+        self.conv_hr2 = nn.Conv2d(64, 64, 3, 1, 1)
+        self.conv_last1 = nn.Conv2d(64, 3, 3, 1, 1)
+        self.conv_last2 = nn.Conv2d(64, 3, 3, 1, 1)
+        self.img_upsample1 = nn.Upsample(
+            scale_factor=2, mode='bilinear', align_corners=False)
+        self.img_upsample2 = nn.Upsample(
             scale_factor=4, mode='bilinear', align_corners=False)
 
         # activation function
@@ -336,13 +342,19 @@ class BasicVSRPlusPlusUnet(nn.Module):
 
             hr = self.reconstruction(hr)
             hr = self.lrelu(self.upsample1(hr))
+            hr1 = self.lrelu(self.conv_hr1(hr))
+            hr1 = self.conv_last1(hr)
+            
             hr = self.lrelu(self.upsample2(hr))
-            hr = self.lrelu(self.conv_hr(hr))
-            hr = self.conv_last(hr)
+            hr2 = self.lrelu(self.conv_hr2(hr))
+            hr2 = self.conv_last2(hr)
             if self.is_low_res_input:
-                hr += self.img_upsample(lqs[:, i, :, :, :])
+                hr1 += self.img_upsample1(lqs[:, i, :, :, :])
+                hr2 += self.img_upsample2(lqs[:, i, :, :, :])
             else:
-                hr += lqs[:, i, :, :, :]
+                from torch.nn.functional import interpolate
+                hr1 = interpolate(lqs[:, i, :, :, :], scale_factor=0.5, align_corners=False)
+                hr2 += lqs[:, i, :, :, :]
 
             if self.cpu_cache:
                 hr = hr.cpu()
