@@ -4,7 +4,7 @@ exp_name = 'test_1118'
 
 # model settings
 model = dict(
-    type='BasicVSR_vggloss',
+    type='BasicVSR_vggloss_ssimloss',
     generator=dict(
         type='BasicVSRPlusPlus',
         mid_channels=64,

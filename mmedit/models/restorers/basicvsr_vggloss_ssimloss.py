@@ -13,13 +13,14 @@ from .basic_restorer import BasicRestorer
 
 
 @MODELS.register_module()
-class BasicVSR_vggloss(BasicRestorer):
+class BasicVSR_vggloss_ssimloss(BasicRestorer):
     """BasicVSR model for video super-resolution.
 
     Args:
         generator (dict): Config for the generator structure.
         pixel_loss (dict): Config for pixel-wise loss.
         perceptual_loss (dict): Config for perceptual loss.
+        ssim_loss (dict): Config for ssim loss.
         ensemble (dict): Config for ensemble. Default: None.
         train_cfg (dict): Config for training. Default: None.
         test_cfg (dict): Config for testing. Default: None.
@@ -30,6 +31,7 @@ class BasicVSR_vggloss(BasicRestorer):
                  generator,
                  pixel_loss,
                  perceptual_loss=None,
+                 ssim_loss = None,
                  ensemble=None,
                  train_cfg=None,
                  test_cfg=None,
@@ -38,6 +40,9 @@ class BasicVSR_vggloss(BasicRestorer):
                          pretrained)
         # perceptual_loss
         self.perceptual_loss = build_loss(perceptual_loss)
+        
+        # ssim loss
+        self.ssim_loss = build_loss(ssim_loss)
 
         # fix pre-trained networks
         self.fix_iter = train_cfg.get('fix_iter', 0) if train_cfg else 0
@@ -96,7 +101,9 @@ class BasicVSR_vggloss(BasicRestorer):
         
         # data
         gt_percep = gt.clone()
+        gt_ssim = gt.clone()
         output_percep = output.clone()
+        output_ssim = output.clone()
         
         # perceptual loss
         # reshape: (n, t, c, h, w) -> (n*t, c, h, w)
@@ -109,6 +116,14 @@ class BasicVSR_vggloss(BasicRestorer):
                 losses['loss_perceptual'] = loss_percep
             if loss_style is not None:
                 losses['loss_style'] = loss_style
+                
+        # ssim loss
+        c, h, w = gt.shape[2:]
+        gt_ssim = gt_ssim.view(-1, c, h, w)
+        output_ssim = output_ssim.view(-1, c, h, w)
+        if self.ssim_loss:
+            loss_ssim = self.ssim_loss(output_ssim, gt_ssim)
+            losses['loss_ssim'] = loss_ssim
                 
         outputs = dict(
             losses=losses,
