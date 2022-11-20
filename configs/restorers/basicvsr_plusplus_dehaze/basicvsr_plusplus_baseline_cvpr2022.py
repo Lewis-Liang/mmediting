@@ -134,7 +134,7 @@ data = dict(
         lq_folder='./data/REVIDE_indoor/Test/hazy',
         gt_folder='./data/REVIDE_indoor/Test/gt',
         pipeline=test_pipeline,
-        num_input_frames=5,
+        # num_input_frames=5,
         test_mode=True),
 )
 

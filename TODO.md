@@ -7,7 +7,8 @@
 - [x] tools/test_multiple_times.sh
 - [D] 测试hsvloss
 - [x] histogram loss
-- [x] ssim loss
+- [D] ssim loss
 - [D] 测试unet structure with vggloss and frame 7 or 9
 - [x] 测试时候，batch的大小会不会影响最后性能？
 - [D] 测试60k? 30k + 30k
+- [x] custom_test_all.py [.sh]的完善 

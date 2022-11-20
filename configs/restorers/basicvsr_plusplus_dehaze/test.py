@@ -1,15 +1,18 @@
-exp_name = 'basicvsr_plusplus_unet_vggloss_c64n7_2x1_p256_f9_50k_revide'
+exp_name = 'test'
+# basicvsr_plusplus_vggloss_ssimloss_accum8_c64n7_1x1_p384_f9_50k_revide
 
 # model settings
 model = dict(
-    type='BasicVSR_vggloss',
+    type='BasicVSR_vggloss_ssimloss',
     generator=dict(
-        type='BasicVSRPlusPlusUnet',
+        type='BasicVSRPlusPlus',
         mid_channels=64,
+        num_blocks=7,
         is_low_res_input=False,
         spynet_pretrained='https://download.openmmlab.com/mmediting/restorers/'
         'basicvsr/spynet_20210409-c6c1bd09.pth'),
     pixel_loss=dict(type='CharbonnierLoss', loss_weight=1.0, reduction='mean'),
+    
     perceptual_loss=dict(
         type='PerceptualLoss',
         layer_weights={
@@ -22,7 +25,12 @@ model = dict(
         vgg_type='vgg19',
         perceptual_weight=0.1,
         style_weight=0,
-        norm_img=False))
+        norm_img=False),
+    
+        ssim_loss=dict(
+            type='SSIMLoss',
+            ssim_weight=1.0
+        ))
 # model training and testing settings
 train_cfg = dict(fix_iter=5000)
 test_cfg = dict(metrics=['PSNR','SSIM'], crop_border=0)
@@ -51,7 +59,7 @@ train_pipeline = [
         keep_ratio=False,
         scale=(1280, 720),
         interpolation='bicubic'),
-    dict(type='PairedRandomCropWithoutScale', gt_patch_size=256),
+    dict(type='PairedRandomCropWithoutScale', gt_patch_size=384),
     dict(
         type='Flip', keys=['lq', 'gt'], flip_ratio=0.5,
         direction='horizontal'),
@@ -107,7 +115,7 @@ demo_pipeline = [
 
 data = dict(
     workers_per_gpu=2,
-    train_dataloader=dict(samples_per_gpu=2, drop_last=True),  # 1 gpu
+    train_dataloader=dict(samples_per_gpu=1, drop_last=False),  # 1 gpu
     val_dataloader=dict(samples_per_gpu=1,workers_per_gpu=1),
     test_dataloader=dict(samples_per_gpu=1, workers_per_gpu=1),
 
@@ -136,6 +144,7 @@ data = dict(
         lq_folder='./data/REVIDE_indoor/Test/hazy',
         gt_folder='./data/REVIDE_indoor/Test/gt',
         pipeline=test_pipeline,
+        # num_input_frames=9,
         test_mode=True),
 )
 
@@ -146,15 +155,18 @@ optimizers = dict(
         lr=1e-4,
         betas=(0.9, 0.99),
         paramwise_cfg=dict(custom_keys={'spynet': dict(lr_mult=0.25)})))
-# optimizer_config = dict(type="GradientCumulativeOptimizerHook", cumulative_iters=2)
+optimizer_config = dict(
+    type='GradientCumulativeOptimizerHook',
+    cumulative_iters=8
+)
 
 # learning policy
-total_iters = 60000
+total_iters = 50000
 lr_config = dict(
     policy='CosineRestart',
     by_epoch=False,
-    periods=[30000,30000],
-    restart_weights=[1,0.5],
+    periods=[50000],
+    restart_weights=[1],
     min_lr=1e-7)
 
 checkpoint_config = dict(interval=5000, save_optimizer=True, by_epoch=False)

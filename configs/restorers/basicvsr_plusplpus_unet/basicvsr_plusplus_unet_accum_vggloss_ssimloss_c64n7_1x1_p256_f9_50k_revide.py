@@ -1,8 +1,8 @@
-exp_name = 'basicvsr_plusplus_unet_vggloss_c64n7_2x1_p256_f9_50k_revide'
+exp_name = 'basicvsr_plusplus_unet_accum_vggloss_ssimloss_c64n7_1x1_p256_f9_50k_revide'
 
 # model settings
 model = dict(
-    type='BasicVSR_vggloss',
+    type='BasicVSR_vggloss_ssimloss',
     generator=dict(
         type='BasicVSRPlusPlusUnet',
         mid_channels=64,
@@ -22,7 +22,12 @@ model = dict(
         vgg_type='vgg19',
         perceptual_weight=0.1,
         style_weight=0,
-        norm_img=False))
+        norm_img=False),
+    ssim_loss=dict(
+        type='SSIMLoss',
+        ssim_weight=1.0
+        ))
+
 # model training and testing settings
 train_cfg = dict(fix_iter=5000)
 test_cfg = dict(metrics=['PSNR','SSIM'], crop_border=0)
@@ -107,7 +112,7 @@ demo_pipeline = [
 
 data = dict(
     workers_per_gpu=2,
-    train_dataloader=dict(samples_per_gpu=2, drop_last=True),  # 1 gpu
+    train_dataloader=dict(samples_per_gpu=1, drop_last=False),  # 1 gpu
     val_dataloader=dict(samples_per_gpu=1,workers_per_gpu=1),
     test_dataloader=dict(samples_per_gpu=1, workers_per_gpu=1),
 
@@ -136,6 +141,7 @@ data = dict(
         lq_folder='./data/REVIDE_indoor/Test/hazy',
         gt_folder='./data/REVIDE_indoor/Test/gt',
         pipeline=test_pipeline,
+        # num_input_frames=9,
         test_mode=True),
 )
 
@@ -146,18 +152,18 @@ optimizers = dict(
         lr=1e-4,
         betas=(0.9, 0.99),
         paramwise_cfg=dict(custom_keys={'spynet': dict(lr_mult=0.25)})))
-# optimizer_config = dict(type="GradientCumulativeOptimizerHook", cumulative_iters=2)
+optimizer_config = dict(type="GradientCumulativeOptimizerHook", cumulative_iters=8)
 
 # learning policy
-total_iters = 60000
+total_iters = 50000
 lr_config = dict(
     policy='CosineRestart',
     by_epoch=False,
-    periods=[30000,30000],
-    restart_weights=[1,0.5],
+    periods=[50000],
+    restart_weights=[1],
     min_lr=1e-7)
 
-checkpoint_config = dict(interval=5000, save_optimizer=True, by_epoch=False)
+checkpoint_config = dict(interval=1000, save_optimizer=True, by_epoch=False)
 # remove gpu_collect=True in non distributed training
 evaluation = dict(interval=1000, save_image=True)
 log_config = dict(
@@ -167,6 +173,16 @@ log_config = dict(
         # dict(type='TensorboardLoggerHook'),
     ])
 visual_config = None
+
+# custom hooks
+custom_hooks = [
+    dict(
+        type='ExponentialMovingAverageHook',
+        module_keys=('generator_ema', ),
+        interval=1,
+        interp_cfg=dict(momentum=0.999)
+    )
+]
 
 # runtime settings
 dist_params = dict(backend='nccl')
