@@ -20,10 +20,13 @@ from .basicvsr_dehaze_net import BasicVSRDehazeNet
 from .basicvsr_pp_fix_resolution import BasicVSRPlusPlusFixResolution
 from .basicvsr_pp_unet import BasicVSRPlusPlusUnet
 
+from .real_basicvsr_dehaze_net import RealBasicVSRDehazeNet
+
 
 __all__ = [
     'MSRResNet', 'RRDBNet', 'EDSR', 'EDVRNet', 'TOFlow', 'SRCNN', 'DICNet',
     'BasicVSRNet', 'IconVSR', 'RDN', 'TTSRNet', 'GLEANStyleGANv2', 'TDANNet',
     'LIIFEDSR', 'LIIFRDN', 'BasicVSRPlusPlus', 'RealBasicVSRNet', 
-    'BasicVSRDehazeNet', 'BasicVSRPlusPlusFixResolution', 'BasicVSRPlusPlusUnet'
+    'BasicVSRDehazeNet', 'BasicVSRPlusPlusFixResolution', 'BasicVSRPlusPlusUnet',
+    'RealBasicVSRDehazeNet'
 ]

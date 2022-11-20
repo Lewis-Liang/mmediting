@@ -55,3 +55,8 @@ def test_real_basicvsr_net():
         with pytest.raises(TypeError):
             # pretrained should be str or None
             real_basicvsr.init_weights(pretrained=[1])
+
+if __name__ == '__main__':
+    test_real_basicvsr_net()
+    
+    

@@ -207,3 +207,8 @@ def test_real_basicvsr():
         assert torch.equal(outputs['results']['gt'], data_batch['gt'])
         assert torch.is_tensor(outputs['results']['output'])
         assert outputs['results']['output'].size() == (5, 3, 256, 256)
+
+
+if __name__ == "__main__":
+    test_real_basicvsr()
+

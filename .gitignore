@@ -136,6 +136,7 @@ mmedit/.mim
 
 # work_dirs & outputs
 work_dirs/**
+experiments/**
 outputs/**
 
 # nohup.out
