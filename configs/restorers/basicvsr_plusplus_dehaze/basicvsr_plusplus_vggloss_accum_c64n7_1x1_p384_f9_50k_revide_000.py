@@ -1,20 +1,8 @@
-# baseline in cvpr 2022 paper Neural Compression-Based Feature Learning for Video Restoration
-# data aug: random horizontal, vertical, and transposed flipping
-# fixiter 2500
-# p 384
-# b 16
-# f 5
-# lr 2e-4
-# spynet_lr 2.5e-5
-# adamw
-# cosine annealing
-# 50k
-
-exp_name = 'basicvsr_plusplus_baseline_cvpr2022'
+exp_name = 'basicvsr_plusplus_vggloss_accum_c64n7_1x1_p384_f9_50k_revide_000'
 
 # model settings
 model = dict(
-    type='BasicVSR',
+    type='BasicVSR_vggloss',
     generator=dict(
         type='BasicVSRPlusPlus',
         mid_channels=64,
@@ -22,9 +10,22 @@ model = dict(
         is_low_res_input=False,
         spynet_pretrained='https://download.openmmlab.com/mmediting/restorers/'
         'basicvsr/spynet_20210409-c6c1bd09.pth'),
-    pixel_loss=dict(type='CharbonnierLoss', loss_weight=1.0, reduction='mean'))
+    pixel_loss=dict(type='CharbonnierLoss', loss_weight=1.0, reduction='mean'),
+    perceptual_loss=dict(
+        type='PerceptualLoss',
+        layer_weights={
+            '2': 0.1,
+            '7': 0.1,
+            '16': 1.0,
+            '25': 1.0,
+            '34': 1.0,
+        },
+        vgg_type='vgg19',
+        perceptual_weight=0.1,
+        style_weight=0,
+        norm_img=False))
 # model training and testing settings
-train_cfg = dict(fix_iter=2500)
+train_cfg = dict(fix_iter=5000)
 test_cfg = dict(metrics=['PSNR','SSIM'], crop_border=0)
 
 # dataset settings
@@ -52,7 +53,9 @@ train_pipeline = [
         scale=(1280, 720),
         interpolation='bicubic'),
     dict(type='PairedRandomCropWithoutScale', gt_patch_size=384),
-    dict(type='Flip', keys=['lq', 'gt'], flip_ratio=0.5, direction='horizontal'),
+    dict(
+        type='Flip', keys=['lq', 'gt'], flip_ratio=0.5,
+        direction='horizontal'),
     dict(type='Flip', keys=['lq', 'gt'], flip_ratio=0.5, direction='vertical'),
     dict(type='RandomTransposeHW', keys=['lq', 'gt'], transpose_ratio=0.5),
     dict(type='FramesToTensor', keys=['lq', 'gt']),
@@ -104,8 +107,8 @@ demo_pipeline = [
 ]
 
 data = dict(
-    workers_per_gpu=4,
-    train_dataloader=dict(samples_per_gpu=2, drop_last=True),  # 8 gpus
+    workers_per_gpu=2,
+    train_dataloader=dict(samples_per_gpu=1, drop_last=False),  # 1 gpu
     val_dataloader=dict(samples_per_gpu=1,workers_per_gpu=1),
     test_dataloader=dict(samples_per_gpu=1, workers_per_gpu=1),
 
@@ -117,7 +120,7 @@ data = dict(
             type=train_dataset_type,
             lq_folder='./data/REVIDE_indoor/Train/hazy',
             gt_folder='./data/REVIDE_indoor/Train/gt',
-            num_input_frames=5,
+            num_input_frames=9,
             pipeline=train_pipeline,
             test_mode=False)),
     # val
@@ -126,7 +129,7 @@ data = dict(
         lq_folder='./data/REVIDE_indoor/Test/hazy',
         gt_folder='./data/REVIDE_indoor/Test/gt',
         pipeline=test_pipeline,
-        num_input_frames=5,
+        num_input_frames=9,
         test_mode=True),
     # test
     test=dict(
@@ -134,30 +137,34 @@ data = dict(
         lq_folder='./data/REVIDE_indoor/Test/hazy',
         gt_folder='./data/REVIDE_indoor/Test/gt',
         pipeline=test_pipeline,
-        # num_input_frames=5,
+        # num_input_frames=9,
         test_mode=True),
 )
 
 # optimizer
 optimizers = dict(
     generator=dict(
-        type='AdamW',
-        lr=2e-4,
-        betas=(0.9, 0.999),
-        paramwise_cfg=dict(custom_keys={'spynet': dict(lr_mult=0.125)})))
-
-optimizer_config = dict(type="GradientCumulativeOptimizerHook", cumulative_iters=8)
+        type='Adam',
+        lr=1e-4,
+        betas=(0.9, 0.99),
+        paramwise_cfg=dict(custom_keys={'spynet': dict(lr_mult=0.25)})))
+optimizer_config = dict(
+    type='GradientCumulativeOptimizerHook',
+    cumulative_iters=8
+)
 
 # learning policy
 total_iters = 50000
 lr_config = dict(
-    policy='CosineAnnealing',
+    policy='CosineRestart',
     by_epoch=False,
+    periods=[50000],
+    restart_weights=[1],
     min_lr=1e-7)
 
 checkpoint_config = dict(interval=5000, save_optimizer=True, by_epoch=False)
 # remove gpu_collect=True in non distributed training
-# evaluation = dict(interval=1000, save_image=False)
+evaluation = dict(interval=1000, save_image=True)
 log_config = dict(
     interval=100,
     hooks=[
@@ -165,15 +172,6 @@ log_config = dict(
         # dict(type='TensorboardLoggerHook'),
     ])
 visual_config = None
-
-# custom_hooks
-custom_hooks = [ 
-    dict(type='EvalIterHookFull', 
-             config='configs/restorers/basicvsr_plusplus_dehaze/basicvsr_plusplus_baseline_cvpr2022.py', 
-             interval=1000, 
-             save_image=True,
-             priority='LOW') 
-]  
 
 # runtime settings
 dist_params = dict(backend='nccl')
