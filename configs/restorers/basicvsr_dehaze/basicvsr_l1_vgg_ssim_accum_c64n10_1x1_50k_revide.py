@@ -183,7 +183,6 @@ data = dict(
         type=test_dataset_type,
         lq_folder='./data/REVIDE_indoor/Test/hazy',
         gt_folder='./data/REVIDE_indoor/Test/gt',
-        num_input_frames=9,
         pipeline=test_pipeline,
         test_mode=True),
 )
