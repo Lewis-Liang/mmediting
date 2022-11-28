@@ -36,7 +36,7 @@ class BasicVSRPlusPlus_RDB(BasicVSRPlusPlus):
                  spynet_pretrained=None,
                  cpu_cache_length=100):
 
-        super(BasicVSRPlusPlus_rdb, self).__init__(
+        super(BasicVSRPlusPlus_RDB, self).__init__(
                  mid_channels,
                  num_blocks,
                  max_residue_magnitude,
