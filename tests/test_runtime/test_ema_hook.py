@@ -236,3 +236,9 @@ class TestEMA:
         assert torch.equal(runner.model.module_a.a,
                            torch.tensor([0.25, 0.5]).cuda())
         assert torch.equal(ema_states['a'], torch.tensor([0.375, 0.75]).cuda())
+
+
+if __name__ == '__main__':
+    testEMA = TestEMA()
+    testEMA.setup_class()
+    testEMA.test_ema_hook()

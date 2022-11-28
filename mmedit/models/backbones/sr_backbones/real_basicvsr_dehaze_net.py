@@ -41,6 +41,7 @@ class RealBasicVSRDehazeNet(nn.Module):
                  num_cleaning_blocks=20,
                  dynamic_refine_thres=255,
                  spynet_pretrained=None,
+                 is_low_res_input=False,
                  is_fix_cleaning=False,
                  is_sequential_cleaning=False):
 
@@ -59,7 +60,7 @@ class RealBasicVSRDehazeNet(nn.Module):
             self.image_cleaning.requires_grad_(False)
 
         # BasicVSR
-        self.basicvsr = BasicVSRDehazeNet(mid_channels, num_propagation_blocks,
+        self.basicvsr = BasicVSRDehazeNet(mid_channels, num_propagation_blocks, is_low_res_input,
                                     spynet_pretrained)
         self.basicvsr.spynet.requires_grad_(False)
 

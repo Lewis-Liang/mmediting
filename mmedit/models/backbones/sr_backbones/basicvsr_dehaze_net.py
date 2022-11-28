@@ -23,7 +23,7 @@ class BasicVSRDehazeNet(nn.Module):
             Default: None.
     """
 
-    def __init__(self, mid_channels=64, num_blocks=30, is_low_res_input=True, spynet_pretrained=None):
+    def __init__(self, mid_channels=64, num_blocks=30, is_low_res_input=False, spynet_pretrained=None):
 
         super().__init__()
 

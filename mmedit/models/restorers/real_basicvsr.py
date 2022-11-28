@@ -107,8 +107,11 @@ class RealBasicVSR(RealESRGAN):
         if self.cleaning_loss:
             n, t, c, h, w = gt.size()
             gt_clean = gt_pixel.view(-1, c, h, w)
-            gt_clean = F.interpolate(gt_clean, scale_factor=0.25, mode='area')
-            gt_clean = gt_clean.view(n, t, c, h // 4, w // 4)
+            if self.generator.basicvsr.is_low_res_input:
+                gt_clean = F.interpolate(gt_clean, scale_factor=0.25, mode='area')
+                gt_clean = gt_clean.view(n, t, c, h // 4, w // 4)
+            else:
+                gt_clean = gt_clean.view(n, t, c, h, w)
 
         # generator
         fake_g_output, fake_g_lq = self.generator(lq, return_lqs=True)

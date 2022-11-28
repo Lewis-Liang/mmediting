@@ -1,18 +1,17 @@
 exp_name = 'realbasicvsr_c64b20_1x30x8_lr5e-5_150k_revide'
 
-scale = 4
-
 # model settings
 model = dict(
     type='RealBasicVSR',
     generator=dict(
         type='RealBasicVSRDehazeNet',
         mid_channels=64,
-        num_propagation_blocks=20,
-        num_cleaning_blocks=20,
+        num_propagation_blocks=10,
+        num_cleaning_blocks=10,
         dynamic_refine_thres=255,  # change to 5 for test
         spynet_pretrained='https://download.openmmlab.com/mmediting/restorers/'
         'basicvsr/spynet_20210409-c6c1bd09.pth',
+        is_low_res_input=False,
         is_fix_cleaning=False,
         is_sequential_cleaning=False),
     discriminator=dict(
@@ -201,7 +200,7 @@ train_pipeline = [
                 dict(
                     type='RandomResize',
                     params=dict(
-                        target_size=(64, 64),
+                        target_size=(256, 256),
                         resize_opt=['bilinear', 'area', 'bicubic'],
                         resize_prob=[1 / 3., 1 / 3., 1 / 3.]),
                 ),
@@ -238,6 +237,12 @@ val_pipeline = [
         key='gt',
         channel_order='rgb'),
     dict(type='RescaleToZeroOne', keys=['lq', 'gt']),
+    dict(
+        type='Resize',
+        keys=['lq','gt'],
+        keep_ratio=False,
+        scale=(640, 360),
+        interpolation='bicubic'),
     dict(type='FramesToTensor', keys=['lq', 'gt']),
     dict(
         type='Collect',
@@ -256,12 +261,18 @@ test_pipeline = [
         key='lq',
         channel_order='rgb'),
     dict(type='RescaleToZeroOne', keys=['lq']),
+    dict(
+        type='Resize',
+        keys=['lq'],
+        keep_ratio=False,
+        scale=(640, 360),
+        interpolation='bicubic'),
     dict(type='FramesToTensor', keys=['lq']),
     dict(type='Collect', keys=['lq'], meta_keys=['lq_path', 'key'])
 ]
 
 data = dict(
-    workers_per_gpu=10,
+    workers_per_gpu=2,
     train_dataloader=dict(samples_per_gpu=1, drop_last=True),
     val_dataloader=dict(samples_per_gpu=1),
     test_dataloader=dict(samples_per_gpu=1, workers_per_gpu=1),
@@ -274,7 +285,7 @@ data = dict(
             type=train_dataset_type,
             lq_folder='./data/REVIDE_indoor/Train/hazy',
             gt_folder='./data/REVIDE_indoor/Train/gt',
-            num_input_frames=7,
+            num_input_frames=5,
             pipeline=train_pipeline,
             test_mode=False)),
     # val
@@ -282,7 +293,7 @@ data = dict(
         type=val_dataset_type,
         lq_folder='./data/REVIDE_indoor/Test/hazy',
         gt_folder='./data/REVIDE_indoor/Test/gt',
-        num_input_frames=7,
+        num_input_frames=5,
         pipeline=val_pipeline,
         test_mode=True),
     # test
@@ -290,6 +301,7 @@ data = dict(
         type=val_dataset_type,
         lq_folder='./data/REVIDE_indoor/Test/hazy',
         gt_folder='./data/REVIDE_indoor/Test/gt',
+        # num_input_frames=5,
         pipeline=test_pipeline,
         test_mode=True),
 )
@@ -306,9 +318,9 @@ lr_config = dict(policy='Step', by_epoch=False, step=[400000], gamma=1)
 checkpoint_config = dict(interval=5000, save_optimizer=True, by_epoch=False)
 
 # remove gpu_collect=True in non distributed training
-evaluation = dict(interval=5000, save_image=True)
+evaluation = dict(interval=5000, save_image=False)
 log_config = dict(
-    interval=100,
+    interval=1000,
     hooks=[
         dict(type='TextLoggerHook', by_epoch=False),
         dict(type='TensorboardLoggerHook'),

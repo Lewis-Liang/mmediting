@@ -9,9 +9,9 @@ iters=(30000 35000 40000 45000 50000)
 
 for iter in ${iters[@]}
 do
-python tools/custom_test.py \
+python tools/test_dehaze_video_inference.py \
+--seq 9 \
 --config ${CONFIG} \
  --checkpoint work_dirs/${CHECKPOINT%.*}/iter_${iter}.pth
 done
 
-# 

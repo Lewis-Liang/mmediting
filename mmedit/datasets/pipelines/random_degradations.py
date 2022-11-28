@@ -144,8 +144,7 @@ class RandomResize:
 
     Args:
         params (dict): A dictionary specifying the degradation settings.
-        keys (list[str]): A list specifying the keys whose values are
-            modified.
+        keys (list[str]): A list specifying the keys whose values are modified.
     """
 
     def __init__(self, params, keys):
