@@ -203,6 +203,11 @@ class ResidualBlocksWithInputConv(nn.Module):
         main.append(nn.LeakyReLU(negative_slope=0.1, inplace=True))
 
         # residual blocks
+        # main.append(
+        #     make_layer(
+        #         ResidualDenseBlock, num_blocks, mid_channels=out_channels))
+        
+        # residual blocks
         main.append(
             make_layer(
                 ResidualBlockNoBN, num_blocks, mid_channels=out_channels))
