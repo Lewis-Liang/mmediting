@@ -1,5 +1,5 @@
 # seed:1170519438
-exp_name = 'basicvsr_plusplus_1xvggloss_ssimloss_ldlloss_ema_accum8_c64n7_1x1_p384_f9_300k_revide'
+exp_name = 'basicvsr_plusplus_1xvggloss_ssimloss_ldlloss_ema_accum8_c64n7_1x1_p256_f9_300k_revide'
 
 # model settings
 model = dict(
@@ -34,7 +34,7 @@ model = dict(
         
         ldl_loss=dict(
             type='LDLLoss',
-            ldl_weight=1.0
+            ldl_weight=10.0
         ),
         
         is_use_ema=True,)
@@ -67,7 +67,7 @@ train_pipeline = [
         keep_ratio=False,
         scale=(1280, 720),
         interpolation='bicubic'),
-    dict(type='PairedRandomCropWithoutScale', gt_patch_size=384),
+    dict(type='PairedRandomCropWithoutScale', gt_patch_size=256),
     dict(
         type='Flip', keys=['lq', 'gt'], flip_ratio=0.5,
         direction='horizontal'),
@@ -179,7 +179,7 @@ lr_config = dict(
 
 checkpoint_config = dict(interval=1000, save_optimizer=True, by_epoch=False)
 # remove gpu_collect=True in non distributed training
-evaluation = dict(interval=1000, save_image=True)
+evaluation = dict(interval=5000, save_image=True)
 log_config = dict(
     interval=100,
     hooks=[
@@ -203,7 +203,8 @@ dist_params = dict(backend='nccl')
 log_level = 'INFO'
 work_dir = f'./work_dirs/{exp_name}'
 load_from = None
-resume_from = 'work_dirs/basicvsr_plusplus_1xvggloss_ssimloss_ema_accum8_c64n7_1x1_p384_f9_300k_revide/latest.pth'
+resume_from = None
+# resume_from = 'work_dirs/basicvsr_plusplus_1xvggloss_ssimloss_ema_accum8_c64n7_1x1_p256_f9_300k_revide/latest.pth'
 workflow = [('train', 1)]
 find_unused_parameters = True
 

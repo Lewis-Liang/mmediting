@@ -8,6 +8,7 @@ from .pixelwise_loss import L1Loss
 
 def get_local_weights(residual, ksize):
 
+    residual = residual.squeeze(1)
     pad = (ksize - 1) // 2
     residual_pad = F.pad(residual, pad=[pad, pad, pad, pad], mode='reflect')
 
@@ -40,6 +41,6 @@ class LDLLoss(nn.Module):
         
     def forward(self, gt, output, output_ema):
         pixel_weight = get_refined_artifact_map(gt, output, output_ema, self.window_size)
-        l_g_artifacts = self.cri_artifacts(torch.mul(pixel_weight, self.output), torch.mul(pixel_weight, self.gt))
+        l_g_artifacts = self.cri_artifacts(torch.mul(pixel_weight, output), torch.mul(pixel_weight, gt))
         return self.ldl_weight * l_g_artifacts
 
