@@ -66,5 +66,5 @@ class SSIMLoss(nn.Module):
             self.window = window
             self.channel = channel
 
-        return 1-self.ssim_weight *_ssim(img1, img2, window, self.window_size, channel, self.size_average)
+        return self.ssim_weight * (1-_ssim(img1, img2, window, self.window_size, channel, self.size_average))
 

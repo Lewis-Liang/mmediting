@@ -138,6 +138,7 @@ if __name__ == '__main__':
                     tensor2img(output[:, i, :, :, :]), save_path_i)
 
         prog_bar.update()
+        
     ############# 
     # Test ends
     #############
@@ -151,7 +152,27 @@ if __name__ == '__main__':
             img_dir = test_folder + '/' + folder_name
             sum_metrics[metric] += evaluate_results[img_dir][metric]
             
+    # 1206
+    from os.path import splitext, basename,join
+    checkpoint_name = splitext(basename(cfg.checkpoint))[0]
+    if 'iter_' in checkpoint_name:
+        checkpoint_iter = checkpoint_name[5:]
+    else:
+        checkpoint_iter = checkpoint_name
+
+    handler = open(join(model.cfg.work_dir,"eval_results_byseq.txt"), "a")
+    handler.write('#'*10 + '\n')
+    handler.write(f'Iter: {checkpoint_iter}\n')
+    handler.write('#'*10 + '\n')
     
+    msg_all = ''
     for metric in metrics:
-        print(f"{metric}:\t{sum_metrics[metric] / len(folders)}")
+        metric_v = sum_metrics[metric] / len(folders)
+        msg = 'Eval-{}: {}'.format(metric, metric_v)
+        msg_all += ( msg+'\n' )
+        print(f"{metric}:\t{metric_v}")
+        
+    # write metrics to file
+    handler.write(msg_all)
+    handler.close()
 

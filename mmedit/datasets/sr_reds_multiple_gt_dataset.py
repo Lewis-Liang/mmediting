@@ -83,3 +83,4 @@ class SRREDSMultipleGTDataset(BaseSRDataset):
                     num_input_frames=self.num_input_frames))
 
         return data_infos
+

@@ -1,10 +1,13 @@
 # Copyright (c) OpenMMLab. All rights reserved.
+from copy import deepcopy
 import numbers
 import os.path as osp
 
 import mmcv
 import numpy as np
 import torch
+
+from mmcv.parallel import is_module_wrapper
 
 from mmedit.core import tensor2img
 from ..registry import MODELS
@@ -22,6 +25,8 @@ class BasicVSR_vggloss_ssimloss(BasicRestorer):
         perceptual_loss (dict): Config for perceptual loss.
         ssim_loss (dict): Config for ssim loss.
         ensemble (dict): Config for ensemble. Default: None.
+        is_use_ema (bool, optional): When to apply exponential moving average
+            on the network weights. Default: False.
         train_cfg (dict): Config for training. Default: None.
         test_cfg (dict): Config for testing. Default: None.
         pretrained (str): Path for pretrained model. Default: None.
@@ -33,6 +38,7 @@ class BasicVSR_vggloss_ssimloss(BasicRestorer):
                  perceptual_loss=None,
                  ssim_loss = None,
                  ensemble=None,
+                 is_use_ema=False,
                  train_cfg=None,
                  test_cfg=None,
                  pretrained=None):
@@ -47,9 +53,12 @@ class BasicVSR_vggloss_ssimloss(BasicRestorer):
         # fix pre-trained networks
         self.fix_iter = train_cfg.get('fix_iter', 0) if train_cfg else 0
         self.is_weight_fixed = False
-
+        
         # count training steps
         self.register_buffer('step_counter', torch.zeros(1))
+
+        # used for initializing from ema model
+        self.start_iter = train_cfg.get('start_iter', -1) if train_cfg else -1
 
         # ensemble
         self.forward_ensemble = None
@@ -64,6 +73,13 @@ class BasicVSR_vggloss_ssimloss(BasicRestorer):
                     'Currently support only '
                     '"SpatialTemporalEnsemble", but got type '
                     f'[{ensemble["type"]}]')
+        
+        # ema
+        self.is_use_ema = is_use_ema
+        if is_use_ema:
+            self.generator_ema = deepcopy(self.generator)
+        else:
+            self.generator_ema = None
 
     def check_if_mirror_extended(self, lrs):
         """Check whether the input is a mirror-extended sequence.
@@ -141,6 +157,15 @@ class BasicVSR_vggloss_ssimloss(BasicRestorer):
         Returns:
             dict: Returned output.
         """
+        # during initialization, load weights from the ema model
+        if (self.step_counter == self.start_iter
+                and self.generator_ema is not None):
+            if is_module_wrapper(self.generator):
+                self.generator.module.load_state_dict(
+                    self.generator_ema.module.state_dict())
+            else:
+                self.generator.load_state_dict(self.generator_ema.state_dict())
+                
         # fix SPyNet and EDVR at the beginning
         if self.step_counter < self.fix_iter:
             if not self.is_weight_fixed:
@@ -220,11 +245,13 @@ class BasicVSR_vggloss_ssimloss(BasicRestorer):
         Returns:
             dict: Output results.
         """
+        _model = self.generator_ema if self.is_use_ema else self.generator
+        
         with torch.no_grad():
             if self.forward_ensemble is not None:
-                output = self.forward_ensemble(lq, self.generator)
+                output = self.forward_ensemble(lq, _model)
             else:
-                output = self.generator(lq)
+                output = _model(lq)
 
         # If the GT is an image (i.e. the center frame), the output sequence is
         # turned to an image.

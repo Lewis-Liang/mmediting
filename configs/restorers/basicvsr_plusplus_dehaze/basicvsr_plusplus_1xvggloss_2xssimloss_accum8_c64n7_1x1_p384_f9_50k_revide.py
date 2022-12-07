@@ -1,11 +1,11 @@
 # seed:1170519438
-exp_name = 'basicvsr_plusplus_1xvggloss_rdb_ssimloss_accum8_c64n7_1x1_p384_f7_50k_revide'
+exp_name = 'basicvsr_plusplus_1xvggloss_2xssimloss_accum8_c64n7_1x1_p384_f9_50k_revide'
 
 # model settings
 model = dict(
     type='BasicVSR_vggloss_ssimloss',
     generator=dict(
-        type='BasicVSRPlusPlus_RDB',
+        type='BasicVSRPlusPlus',
         mid_channels=64,
         num_blocks=7,
         is_low_res_input=False,
@@ -23,13 +23,13 @@ model = dict(
             '34': 1.0,
         },
         vgg_type='vgg19',
-        perceptual_weight=1.0,
+        perceptual_weight=1,
         style_weight=0,
         norm_img=False),
     
         ssim_loss=dict(
             type='SSIMLoss',
-            ssim_weight=1.0
+            ssim_weight=2.0
         ))
 # model training and testing settings
 train_cfg = dict(fix_iter=5000)
@@ -169,7 +169,7 @@ lr_config = dict(
     restart_weights=[1],
     min_lr=1e-7)
 
-checkpoint_config = dict(interval=5000, save_optimizer=True, by_epoch=False)
+checkpoint_config = dict(interval=1000, save_optimizer=True, by_epoch=False)
 # remove gpu_collect=True in non distributed training
 evaluation = dict(interval=1000, save_image=True)
 log_config = dict(
