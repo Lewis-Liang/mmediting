@@ -4,6 +4,7 @@ import torchvision.models.vgg as vgg
 from mmcv.runner import load_checkpoint
 from torch.nn import functional as F
 
+from .perceptual_loss import PerceptualVGG
 from ..registry import LOSSES
 
 
@@ -45,7 +46,8 @@ class ContrastLoss(nn.Module):
                  norm_img=True,
                  pretrained='torchvision://vgg19',
                  criterion='l1',
-                 ablation=False):
+                 ablation=False,
+                 neg_num=1):
         super().__init__()
         self.norm_img = norm_img
         self.contrast_weight = contrast_weight
@@ -67,6 +69,7 @@ class ContrastLoss(nn.Module):
                 f'{criterion} criterion has not been supported in'
                 ' this version.')
             
+        self.neg_num = neg_num
         self.ab = ablation
 
     def forward(self, anchor, pos, neg):
@@ -85,18 +88,20 @@ class ContrastLoss(nn.Module):
             pos = (pos + 1.) * 0.5
             neg = (neg + 1.) * 0.5
         # extract vgg features
-        anchor_features = self.vgg(anchor)
-        pos_features = self.vgg(pos.detach())
-        neg_features = self.vgg(neg.detach())
+        anchor_features = list(self.vgg(anchor).values())
+        pos_features = list(self.vgg(pos.detach()).values())
+        neg_features = list(self.vgg(neg.detach()).values())
 
         # calculate contrast loss
         contrast_loss = 0.0
         d_ap, d_an = 0, 0
         if self.contrast_weight > 0:
-            for k in anchor_features.keys():
+            for k in range(len(pos_features)):
                 d_ap = self.criterion(anchor_features[k], pos_features[k])
                 if not self.ab:
-                    d_an = self.criterion(anchor_features[i], neg_features[i].detach())
+                    # repeat_times = pos_features[k].size()[0]
+                    # neg_k = neg_features[k][:self.neg_num].unsqueeze(0).repeat_interleave(repeat_times, dim=0).permute((1,0,2,3,4))
+                    d_an = (anchor_features[k] - neg_features[k]).abs().mean(dim=0)
                     contrastive = d_ap / (d_an + 1e-7)
                 else:
                     contrastive = d_ap

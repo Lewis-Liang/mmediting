@@ -10,6 +10,8 @@ from .pixelwise_loss import CharbonnierLoss, L1Loss, MaskedTVLoss, MSELoss
 from .customed_loss import CharbonnierLoss_RGBandHSV
 from .ssim_loss import SSIMLoss
 from .ldl_loss import LDLLoss
+from .contrast_loss import ContrastLoss
+
 
 from .utils import mask_reduce_loss, reduce_loss
 
