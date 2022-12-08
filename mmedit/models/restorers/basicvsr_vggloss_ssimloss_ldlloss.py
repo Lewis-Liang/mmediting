@@ -1,4 +1,5 @@
 # Copyright (c) OpenMMLab. All rights reserved.
+import torch
 from mmcv.parallel import is_module_wrapper
 
 from ..registry import MODELS
@@ -64,9 +65,9 @@ class BasicVSR_vggloss_ssimloss_ldlloss(BasicVSR_vggloss_ssimloss):
         
         # data
         gt_percep = gt.clone()
-        gt_ssim = gt.clone()
+        # gt_ssim = gt.clone()
+        # output_ssim = output.clone()
         output_percep = output.clone()
-        output_ssim = output.clone()
         
         # perceptual loss
         # reshape: (n, t, c, h, w) -> (n*t, c, h, w)
@@ -82,14 +83,16 @@ class BasicVSR_vggloss_ssimloss_ldlloss(BasicVSR_vggloss_ssimloss):
                 
         # ssim loss
         c, h, w = gt.shape[2:]
-        gt_ssim = gt_ssim.view(-1, c, h, w)
-        output_ssim = output_ssim.view(-1, c, h, w)
+        # gt_ssim = gt_ssim.view(-1, c, h, w)
+        # output_ssim = output_ssim.view(-1, c, h, w)
         if self.ssim_loss:
-            loss_ssim = self.ssim_loss(output_ssim, gt_ssim)
+            loss_ssim = self.ssim_loss(output_percep, gt_percep)
+            # loss_ssim = self.ssim_loss(output_ssim, gt_ssim)
             losses['loss_ssim'] = loss_ssim
             
         # ldl loss
-        output_ema = self.generator_ema(lq)
+        with torch.no_grad():
+            output_ema = self.generator_ema(lq)
         if self.ldl_loss:
             loss_ldl = self.ldl_loss(gt, output, output_ema)
             losses['loss_ldl'] = loss_ldl

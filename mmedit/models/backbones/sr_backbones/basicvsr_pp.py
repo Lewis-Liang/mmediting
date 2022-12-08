@@ -285,7 +285,7 @@ class BasicVSRPlusPlus(nn.Module):
         """Forward function for BasicVSR++.
 
         Args:
-            lqs (tensor): Input low quality (LQ) sequence with
+            lqs (tensor): Input low qualitsy (LQ) sequence with
                 shape (n, t, c, h, w).
 
         Returns:

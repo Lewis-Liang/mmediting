@@ -1,9 +1,9 @@
 # seed:1170519438
-exp_name = 'basicvsr_plusplus_1xvgg-aecr_ssim_accum8_c64n7_1x1_p384_f9_50k_revide'
+exp_name = 'basicvsr_plusplus_1xvggloss_ssimloss_ldlloss_ema_accum8_c64n7_1x1_p384_f9_300k_revide'
 
 # model settings
 model = dict(
-    type='BasicVSR_vggloss_ssimloss',
+    type='BasicVSR_vggloss_ssimloss_ldlloss',
     generator=dict(
         type='BasicVSRPlusPlus',
         mid_channels=64,
@@ -16,11 +16,11 @@ model = dict(
     perceptual_loss=dict(
         type='PerceptualLoss',
         layer_weights={
-            '1': 1.0/32.0,
-            '3': 1.0/16.0,
-            '5': 1.0/8.0,
-            '9': 1.0/4.0,
-            '13': 1.0,
+            '2': 0.1,
+            '7': 0.1,
+            '16': 1.0,
+            '25': 1.0,
+            '34': 1.0,
         },
         vgg_type='vgg19',
         perceptual_weight=1,
@@ -30,7 +30,15 @@ model = dict(
         ssim_loss=dict(
             type='SSIMLoss',
             ssim_weight=1.0
-        ))
+        ),
+        
+        ldl_loss=dict(
+            type='LDLLoss',
+            ldl_weight=10.0
+        ),
+        
+        is_use_ema=True,)
+
 # model training and testing settings
 train_cfg = dict(fix_iter=5000)
 test_cfg = dict(metrics=['PSNR','SSIM'], crop_border=0)
@@ -153,7 +161,7 @@ optimizers = dict(
     generator=dict(
         type='Adam',
         lr=1e-4,
-        betas=(0.9, 0.99),
+        betas=(0.9, 0.999),
         paramwise_cfg=dict(custom_keys={'spynet': dict(lr_mult=0.25)})))
 optimizer_config = dict(
     type='GradientCumulativeOptimizerHook',
@@ -161,17 +169,17 @@ optimizer_config = dict(
 )
 
 # learning policy
-total_iters = 50000
+total_iters = 300000
 lr_config = dict(
     policy='CosineRestart',
     by_epoch=False,
-    periods=[50000],
+    periods=[300000],
     restart_weights=[1],
     min_lr=1e-7)
 
 checkpoint_config = dict(interval=1000, save_optimizer=True, by_epoch=False)
 # remove gpu_collect=True in non distributed training
-evaluation = dict(interval=1000, save_image=True)
+evaluation = dict(interval=5000, save_image=True)
 log_config = dict(
     interval=100,
     hooks=[
@@ -179,6 +187,16 @@ log_config = dict(
         # dict(type='TensorboardLoggerHook'),
     ])
 visual_config = None
+
+# custom hook
+custom_hooks = [
+    dict(
+        type='ExponentialMovingAverageHook',
+        module_keys=('generator_ema'),
+        interval=1,
+        interp_cfg=dict(momentum=0.999),
+    )
+]
 
 # runtime settings
 dist_params = dict(backend='nccl')
