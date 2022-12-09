@@ -45,6 +45,7 @@ class BasicVSR_contrastloss_ssimloss(BasicRestorer):
                          pretrained)
         # contrast_loss
         self.contrast_loss = build_loss(contrast_loss)
+        self.neg_num = self.contrast_loss.neg_num
         
         # ssim loss
         self.ssim_loss = build_loss(ssim_loss)
@@ -125,7 +126,7 @@ class BasicVSR_contrastloss_ssimloss(BasicRestorer):
         # reshape: (n, t, c, h, w) -> (n*t, c, h, w)
         c, h, w = gt.shape[2:]
         gt_percep = gt_percep.view(-1, c, h, w)
-        neg_percep = neg_percep.view(-1, c, h, w)
+        neg_percep = neg_percep.view(-1, c, h, w).flip(0)[:self.neg_num]
         output_percep = output_percep.view(-1, c, h, w)
         if self.contrast_loss:
             loss_percep = self.contrast_loss(output_percep, gt_percep, neg_percep)
