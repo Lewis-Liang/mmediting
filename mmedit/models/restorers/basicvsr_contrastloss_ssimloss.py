@@ -1,3 +1,4 @@
+# Copyright (c) OpenMMLab. All rights reserved.
 from copy import deepcopy
 import numbers
 import os.path as osp
@@ -116,20 +117,22 @@ class BasicVSR_contrastloss_ssimloss(BasicRestorer):
         
         # data
         gt_percep = gt.clone()
-        gt_percep = lq.clone()
         gt_ssim = gt.clone()
         output_percep = output.clone()
         output_ssim = output.clone()
+        lq_percep = lq.clone()
         
         # perceptual loss
         # reshape: (n, t, c, h, w) -> (n*t, c, h, w)
         c, h, w = gt.shape[2:]
         gt_percep = gt_percep.view(-1, c, h, w)
         output_percep = output_percep.view(-1, c, h, w)
+        lq_percep = lq_percep.view(-1, c, h, w)
+        
         if self.contrast_loss:
-            loss_percep = self.contrast_loss(output_percep, gt_percep, neg_percep)
-            if loss_percep is not None:
-                losses['loss_contrast'] = loss_percep
+            loss_contrast = self.contrast_loss(output_percep, gt_percep, lq_percep)
+            if loss_contrast is not None:
+                losses['loss_contrast'] = loss_contrast
                 
         # ssim loss
         c, h, w = gt.shape[2:]

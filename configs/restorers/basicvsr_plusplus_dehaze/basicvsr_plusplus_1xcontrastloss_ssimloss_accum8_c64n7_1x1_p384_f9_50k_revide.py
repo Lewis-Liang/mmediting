@@ -1,5 +1,5 @@
 # seed:1170519438
-exp_name = 'basicvsr_plusplus_1xcontrastloss_ssim_accum8_c64n7_1x1_p384_f9_50k_revide'
+exp_name = 'basicvsr_plusplus_1xcontrastloss_ssimloss_accum8_c64n7_1x1_p384_f9_50k_revide'
 
 # model settings
 model = dict(
@@ -16,16 +16,15 @@ model = dict(
     contrast_loss=dict(
         type='ContrastLoss',
         layer_weights={
-            '1': 1.0/32.0,
-            '6': 1.0/16.0,
-            '11': 1.0/8.0,
-            '20': 1.0/4.0,
-            '29': 1.0,
+            '2': 0.1,
+            '7': 0.1,
+            '16': 1.0,
+            '25': 1.0,
+            '34': 1.0,
         },
         vgg_type='vgg19',
         contrast_weight=1,
-        norm_img=False,
-        ablation=False),
+        norm_img=False),
     
         ssim_loss=dict(
             type='SSIMLoss',
@@ -171,7 +170,7 @@ lr_config = dict(
 
 checkpoint_config = dict(interval=1000, save_optimizer=True, by_epoch=False)
 # remove gpu_collect=True in non distributed training
-evaluation = dict(interval=1000, save_image=True)
+evaluation = dict(interval=2500, save_image=True)
 log_config = dict(
     interval=100,
     hooks=[

@@ -4,6 +4,7 @@ from .basicvsr import BasicVSR
 from .basicvsr_vggloss import BasicVSR_vggloss
 from .basicvsr_vggloss_ssimloss import BasicVSR_vggloss_ssimloss
 from .basicvsr_vggloss_ssimloss_ldlloss import BasicVSR_vggloss_ssimloss_ldlloss
+from .basicvsr_contrastloss_ssimloss import BasicVSR_contrastloss_ssimloss
 
 from .dic import DIC
 from .edvr import EDVR

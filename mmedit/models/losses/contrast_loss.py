@@ -5,6 +5,7 @@ from mmcv.runner import load_checkpoint
 from torch.nn import functional as F
 
 from ..registry import LOSSES
+from .perceptual_loss import PerceptualVGG
 
 
 # TODO 暂时只实现了1:1的contrast loss
@@ -96,7 +97,7 @@ class ContrastLoss(nn.Module):
             for k in anchor_features.keys():
                 d_ap = self.criterion(anchor_features[k], pos_features[k])
                 if not self.ab:
-                    d_an = self.criterion(anchor_features[i], neg_features[i].detach())
+                    d_an = self.criterion(anchor_features[k], neg_features[k].detach())
                     contrastive = d_ap / (d_an + 1e-7)
                 else:
                     contrastive = d_ap
@@ -107,3 +108,64 @@ class ContrastLoss(nn.Module):
 
         return contrast_loss
 
+
+@LOSSES.register_module()
+class ContrastLossTest(nn.Module):
+    def __init__(self,
+                 layer_weights,
+                 vgg_type='vgg19',
+                 use_input_norm=True,
+                 contrast_weight=1.0,
+                 norm_img=True,
+                 pretrained='torchvision://vgg19',
+                 criterion='l1'):
+        super().__init__()
+        self.norm_img = norm_img
+        self.contrast_weight = contrast_weight
+        self.layer_weights = layer_weights
+
+        self.vgg = PerceptualVGG(
+            layer_name_list=list(self.layer_weights.keys()),
+            vgg_type=vgg_type,
+            use_input_norm=use_input_norm,
+            pretrained=pretrained)
+
+        criterion = criterion.lower()
+        if criterion == 'l1':
+            self.criterion = torch.nn.L1Loss()
+        elif criterion == 'mse':
+            self.criterion = torch.nn.MSELoss()
+        else:
+            raise NotImplementedError(
+                f'{criterion} criterion has not been supported in'
+                ' this version.')
+
+    def forward(self, x, gt,neg):
+        """Forward function.
+
+        Args:
+            x (Tensor): Input tensor with shape (n, c, h, w).
+            gt (Tensor): Ground-truth tensor with shape (n, c, h, w).
+
+        Returns:
+            Tensor: Forward results.
+        """
+
+        if self.norm_img:
+            x = (x + 1.) * 0.5
+            gt = (gt + 1.) * 0.5
+        # extract vgg features
+        x_features = self.vgg(x)
+        gt_features = self.vgg(gt.detach())
+
+        # calculate perceptual loss
+        if self.contrast_weight > 0:
+            percep_loss = 0
+            for k in x_features.keys():
+                percep_loss += self.criterion(
+                    x_features[k], gt_features[k]) * self.layer_weights[k]
+            percep_loss *= self.contrast_weight
+        else:
+            percep_loss = None
+
+        return percep_loss
