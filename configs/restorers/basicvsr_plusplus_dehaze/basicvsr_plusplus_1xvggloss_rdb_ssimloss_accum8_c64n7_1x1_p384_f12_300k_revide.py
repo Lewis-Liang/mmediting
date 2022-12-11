@@ -186,7 +186,7 @@ dist_params = dict(backend='nccl')
 log_level = 'INFO'
 work_dir = f'./work_dirs/{exp_name}'
 load_from = None
-resume_from = None
+resume_from = 'work_dirs/basicvsr_plusplus_1xvggloss_rdb_ssimloss_accum8_c64n7_1x1_p384_f12_300k_revide/latest.pth'
 workflow = [('train', 1)]
 find_unused_parameters = True
 

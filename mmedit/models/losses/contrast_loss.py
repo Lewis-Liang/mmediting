@@ -3,14 +3,76 @@ import torch.nn as nn
 import torchvision.models.vgg as vgg
 from mmcv.runner import load_checkpoint
 from torch.nn import functional as F
+from torchvision import models
 
+from .perceptual_loss import PerceptualVGG
 from ..registry import LOSSES
 from .perceptual_loss import PerceptualVGG
 
 
-# TODO 暂时只实现了1:1的contrast loss
+class Vgg19(nn.Module):
+    def __init__(self, requires_grad=False):
+        super(Vgg19, self).__init__()
+        vgg_pretrained_features = models.vgg19(pretrained=True).features
+        self.slice1 = torch.nn.Sequential()
+        self.slice2 = torch.nn.Sequential()
+        self.slice3 = torch.nn.Sequential()
+        self.slice4 = torch.nn.Sequential()
+        self.slice5 = torch.nn.Sequential()
+        for x in range(2):
+            self.slice1.add_module(str(x), vgg_pretrained_features[x])
+        for x in range(2, 7):
+            self.slice2.add_module(str(x), vgg_pretrained_features[x])
+        for x in range(7, 12):
+            self.slice3.add_module(str(x), vgg_pretrained_features[x])
+        for x in range(12, 21):
+            self.slice4.add_module(str(x), vgg_pretrained_features[x])
+        for x in range(21, 30):
+            self.slice5.add_module(str(x), vgg_pretrained_features[x])
+        if not requires_grad:
+            for param in self.parameters():
+                param.requires_grad = False
+
+    def forward(self, X):
+        h_relu1 = self.slice1(X)
+        h_relu2 = self.slice2(h_relu1) 
+        h_relu3 = self.slice3(h_relu2)
+        h_relu4 = self.slice4(h_relu3)
+        h_relu5 = self.slice5(h_relu4) 
+        return [h_relu1, h_relu2, h_relu3, h_relu4, h_relu5]
+
+
 @LOSSES.register_module()
 class ContrastLoss(nn.Module):
+    def __init__(self, ablation=False, neg_num=1):
+        super(ContrastLoss, self).__init__()
+        self.vgg = Vgg19().cuda()
+        self.l1 = nn.L1Loss()
+        self.weights = [1.0/32, 1.0/16, 1.0/8, 1.0/4, 1.0]
+        self.ab = ablation
+        self.neg_num = neg_num
+
+    def forward(self, a, p, n):
+        a_vgg, p_vgg, n_vgg = self.vgg(a), self.vgg(p), self.vgg(n)
+        loss = 0
+
+        d_ap, d_an = 0, 0
+        for i in range(len(a_vgg)):
+            d_ap = self.l1(a_vgg[i], p_vgg[i].detach())
+            if not self.ab:
+                # n_vgg[i] [neg_num, c, h ,w]
+                d_an = self.l1(a_vgg[i], n_vgg[i].detach())
+                contrastive = d_ap / (d_an + 1e-7)
+            else:
+                contrastive = d_ap
+
+            loss += self.weights[i] * contrastive
+        return loss
+
+
+# TODO 暂时只实现了1:1的contrast loss
+@LOSSES.register_module()
+class ContrastLossWithPerceptualVGG(nn.Module):
     """Contrast loss with commonly used style loss.
 
     Args:
@@ -46,7 +108,8 @@ class ContrastLoss(nn.Module):
                  norm_img=True,
                  pretrained='torchvision://vgg19',
                  criterion='l1',
-                 ablation=False):
+                 ablation=False,
+                 neg_num=1):
         super().__init__()
         self.norm_img = norm_img
         self.contrast_weight = contrast_weight
@@ -68,6 +131,7 @@ class ContrastLoss(nn.Module):
                 f'{criterion} criterion has not been supported in'
                 ' this version.')
             
+        self.neg_num = neg_num
         self.ab = ablation
 
     def forward(self, anchor, pos, neg):
@@ -86,15 +150,15 @@ class ContrastLoss(nn.Module):
             pos = (pos + 1.) * 0.5
             neg = (neg + 1.) * 0.5
         # extract vgg features
-        anchor_features = self.vgg(anchor)
-        pos_features = self.vgg(pos.detach())
-        neg_features = self.vgg(neg.detach())
+        anchor_features = list(self.vgg(anchor).values())
+        pos_features = list(self.vgg(pos.detach()).values())
+        neg_features = list(self.vgg(neg.detach()).values())
 
         # calculate contrast loss
         contrast_loss = 0.0
         d_ap, d_an = 0, 0
         if self.contrast_weight > 0:
-            for k in anchor_features.keys():
+            for k in range(len(pos_features)):
                 d_ap = self.criterion(anchor_features[k], pos_features[k])
                 if not self.ab:
                     d_an = self.criterion(anchor_features[k], neg_features[k].detach())

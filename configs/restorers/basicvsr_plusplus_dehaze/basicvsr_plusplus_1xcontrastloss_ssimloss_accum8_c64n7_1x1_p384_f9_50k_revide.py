@@ -13,6 +13,20 @@ model = dict(
         'basicvsr/spynet_20210409-c6c1bd09.pth'),
     pixel_loss=dict(type='CharbonnierLoss', loss_weight=1.0, reduction='mean'),
     
+    # contrast_loss=dict(
+    #     type='ContrastLossWithPerceptualVGG',
+    #     layer_weights={
+    #         '1': 1.0/32.0,
+    #         '6': 1.0/16.0,
+    #         '11': 1.0/8.0,
+    #         '20': 1.0/4.0,
+    #         '29': 1.0,
+    #     },
+    #     vgg_type='vgg19',
+    #     contrast_weight=1,
+    #     norm_img=False,
+    #     ablation=False),
+    
     contrast_loss=dict(
         type='ContrastLoss',
         layer_weights={

@@ -3,6 +3,7 @@ from .basic_restorer import BasicRestorer
 from .basicvsr import BasicVSR
 from .basicvsr_vggloss import BasicVSR_vggloss
 from .basicvsr_vggloss_ssimloss import BasicVSR_vggloss_ssimloss
+from .basicvsr_contrastloss_ssimloss import BasicVSR_contrastloss_ssimloss
 from .basicvsr_vggloss_ssimloss_ldlloss import BasicVSR_vggloss_ssimloss_ldlloss
 from .basicvsr_contrastloss_ssimloss import BasicVSR_contrastloss_ssimloss
 
@@ -20,5 +21,5 @@ from .ttsr import TTSR
 __all__ = [
     'BasicRestorer', 'SRGAN', 'ESRGAN', 'EDVR', 'LIIF', 'BasicVSR', 'TTSR',
     'GLEAN', 'TDAN', 'DIC', 'RealESRGAN', 'RealBasicVSR',
-    'BasicVSR_vggloss', 'BasicVSR_vggloss_ssimloss', 'BasicVSR_vggloss_ssimloss_ldlloss'
+    'BasicVSR_vggloss', 'BasicVSR_vggloss_ssimloss', 'BasicVSR_vggloss_ssimloss_ldlloss', 'BasicVSR_contrastloss_ssimloss'
 ]
