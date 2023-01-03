@@ -17,6 +17,8 @@ from .sr_backbones import (EDSR, LIIFEDSR, LIIFRDN, RDN, SRCNN, BasicVSRNet,
                            TDANNet, TOFlow, TTSRNet)
 from .vfi_backbones import CAINNet, FLAVRNet, TOFlowVFINet
 
+from .dehazeformer import dehazeformer_t, dehazeformer_s, dehazeformer_b, dehazeformer_d, dehazeformer_w, dehazeformer_m, dehazeformer_l, DehazeFormer
+
 __all__ = [
     'MSRResNet', 'VGG16', 'PlainDecoder', 'SimpleEncoderDecoder',
     'GLEncoderDecoder', 'GLEncoder', 'GLDecoder', 'GLDilationNeck',

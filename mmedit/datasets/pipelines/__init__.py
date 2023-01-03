@@ -6,6 +6,9 @@ from .augmentation import (BinarizeImage, ColorJitter, CopyValues, Flip,
                            Quantize, RandomAffine, RandomJitter,
                            RandomMaskDilation, RandomTransposeHW, Resize,
                            TemporalReverse, UnsharpMasking)
+                           
+from .my_augmentation import ResizeRatioRange
+
 from .compose import Compose
 from .crop import (Crop, CropAroundCenter, CropAroundFg, CropAroundUnknown,
                    CropLike, FixedCrop, ModCrop, PairedRandomCrop, PairedRandomCropWithoutScale, 

@@ -32,3 +32,9 @@ def test_random_down_sampling():
         f'patch_size={down_sampling2.patch_size}, ' +
         f'interpolation={down_sampling2.interpolation}, ' +
         f'backend={down_sampling2.backend}')
+
+
+if  __name__ == "__main__":
+    test_random_down_sampling()
+    
+    

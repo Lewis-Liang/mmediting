@@ -16,6 +16,8 @@ from .synthesizers import CycleGAN, Pix2Pix
 from .transformers import SearchTransformer
 from .video_interpolators import CAIN, FLAVR, BasicInterpolator
 
+
+
 __all__ = [
     'AOTInpaintor', 'BaseModel', 'BasicRestorer', 'OneStageInpaintor', 'build',
     'build_backbone', 'build_component', 'build_loss', 'build_model',
